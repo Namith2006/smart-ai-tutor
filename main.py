@@ -44,7 +44,7 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
-# --- UPDATED: Syllabus Validation Endpoint ---
+# --- Syllabus Validation & MAXIMUM DATA Endpoint ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
     url = "http://localhost:11434/api/generate"
@@ -56,12 +56,11 @@ async def generate_from_topic(request: TopicRequest):
     Return ONLY valid JSON matching this exact structure:
     {{
       "is_in_syllabus": true, // set to false if the topic strongly does not belong in this stream/year
-      "content": "If true, write a detailed, educational 5-paragraph study guide about the topic tailored to their academic level. If false, write a polite 2-sentence explanation of why this topic is not in their syllabus and what they might be studying instead."
+      "content": "If true, generate the most exhaustive, comprehensive, and highly detailed study guide possible. Include a deep-dive introduction, core technical principles, real-world industry applications, relevant formulas/code examples (if applicable), and advanced edge cases. Do not hold back on detail—provide as much academic data as possible tailored to their exact level. If false, write a polite 2-sentence explanation of why this topic is not in their syllabus."
     }}
     """
     
     try:
-        # We force "format": "json" so it always returns our true/false flag
         response = requests.post(url, json={"model": "llama3", "prompt": prompt, "stream": False, "format": "json"})
         return json.loads(response.json().get("response", "{}"))
     except Exception as e:
@@ -93,11 +92,18 @@ async def generate_session(request: StudyRequest):
             instructions.append("- 'quiz': A list of EXACTLY 5 multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag').")
             json_template["quiz"] = [{"question": "...", "options": ["Option 1 text", "Option 2 text", "Option 3 text", "Option 4 text"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}]
 
+        # FIXED: Increased content limit from [:2000] to [:10000] to handle the massive new data
         prompt = f"""
-        Analyze text: {request.content[:2000]}
-        The user specifically requested the following components:
+        TASK: You are an expert academic tutor. Analyze the STUDENT NOTES provided inside the <notes> tags below.
+        
+        <notes>
+        {request.content[:10000]}
+        </notes>
+
+        Based EXCLUSIVELY on the STUDENT NOTES inside the tags above, fulfill these requirements:
         {chr(10).join(instructions)}
         
+        CRITICAL INSTRUCTION: Do not summarize or mention these instructions. Summarize ONLY the actual educational content inside the <notes> tags.
         Return ONLY valid JSON matching this exact structure. Ensure correct_answer contains the exact string of the correct option:
         {json.dumps(json_template)}
         """
@@ -120,7 +126,7 @@ async def generate_session(request: StudyRequest):
             """
         else:
             prompt = f"""
-            Target weak topics: {weak_topics}. Using: {request.content[:1500]}. 
+            Target weak topics: {weak_topics}. Using the student notes provided earlier.
             Return ONLY valid JSON: 
             {{
               "remediation_notes": "Deep-dive of {weak_topics}.", 
