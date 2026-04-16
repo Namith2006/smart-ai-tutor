@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import PyPDF2, io, requests, json
+import PyPDF2, io, requests, json, re
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -22,6 +22,17 @@ class TopicRequest(BaseModel):
     stream: str
     year: str
     university: str
+
+# --- NEW: HELPER TO SORT UNITS NUMERICALLY ---
+def sort_by_unit(items):
+    def extract_unit_number(text):
+        # Finds "Unit 1", "Unit 1.1", etc.
+        match = re.search(r"Unit\s+(\d+\.?\d*)", text, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+        return 999.0 # Move "General" or un-prefixed items to the end
+    
+    return sorted(items, key=extract_unit_number)
 
 def call_ollama(prompt):
     url = "http://localhost:11434/api/generate"
@@ -44,19 +55,18 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
-# --- CORRECTED: STATE EDUCATIONAL POLICY GATEKEEPER ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
     url = "http://localhost:11434/api/generate"
     
     prompt = f"""
     You are an expert academic advisor for {request.university}.
-    CRITICAL CONSTRAINT: You must evaluate if '{request.topic}' is strictly aligned with the State Educational Policy (SEP) syllabus for a {request.year} student studying {request.stream}. Do NOT accept general curriculum topics if they fall outside the specific guidelines of the State Educational Policy.
+    CRITICAL CONSTRAINT: You must evaluate if '{request.topic}' is strictly aligned with the State Educational Policy (SEP) syllabus for a {request.year} student studying {request.stream}.
     
-    Return ONLY valid JSON matching this exact structure:
+    Return ONLY valid JSON:
     {{
-      "is_in_syllabus": true, // set to false if the topic is NOT in the specific SEP syllabus, even if it is a valid topic for other subjects.
-      "content": "If true, determine if '{request.topic}' is a broad SUBJECT or a narrow TOPIC within the SEP syllabus. CRITICAL INSTRUCTION: If it is a full SUBJECT, you MUST organize the response by syllabus UNITS (e.g., Unit 1, Unit 2). For EVERY single Unit, you must first explicitly list the core TOPICS contained in that unit, and then provide a massive, exhaustive, textbook-level deep-dive explaining every single topic to its fullest capacity. Include technical definitions, core principles, and examples. Leave no sub-topic unexplained. If it is a narrow TOPIC, provide the same exhaustive deep-dive into just that concept. If false, write a polite 2-sentence explanation stating that this topic is outside the scope of the State Educational Policy syllabus."
+      "is_in_syllabus": true, 
+      "content": "If true, determine if '{request.topic}' is a broad SUBJECT or a narrow TOPIC. If it is a full SUBJECT, you MUST organize the response by syllabus UNITS (e.g., Unit 1, Unit 2). For EVERY single Unit, you must first explicitly list the core TOPICS contained in that unit, and then provide a massive, exhaustive, textbook-level deep-dive explaining every single topic to its fullest capacity. If it is a narrow TOPIC, provide the same exhaustive deep-dive. If false, write a polite 2-sentence explanation stating that this topic is outside the scope of the State Educational Policy syllabus."
     }}
     """
     
@@ -72,8 +82,6 @@ async def generate_session(request: StudyRequest):
     
     if request.mode == "initial":
         session_errors = [] 
-        
-        # --- PYTHON CALCULATOR ---
         text_length = len(request.content)
         if text_length < 1500: 
             q_count = 5
@@ -89,102 +97,64 @@ async def generate_session(request: StudyRequest):
         instructions = []
         
         if "summary" in request.preferences:
-            instructions.append("- 'summary': A comprehensive overview of the text. If the text contains distinct Units, briefly summarize what each Unit covers.")
+            instructions.append("- 'summary': A comprehensive overview. If units exist, summarize the progression from Unit 1 to the end.")
             json_template["summary"] = "..."
             
         if "key_points" in request.preferences:
-            instructions.append(f"- 'key_points': A list of EXACTLY {kp_count} important takeaways. CRITICAL RULE: You MUST prefix every single point with its specific Unit from the notes (e.g., 'Unit 1: [Takeaway]'). Ensure items are distributed evenly across all Units. If no units exist, use 'General:'.")
+            instructions.append(f"- 'key_points': A list of EXACTLY {kp_count} important takeaways. You MUST prefix every point with its specific Unit (e.g., 'Unit 1: [Takeaway]'). Group points by unit.")
             json_template["key_points"] = ["Unit 1: ..."] * kp_count
             
         if "imp_topics" in request.preferences:
-            instructions.append(f"- 'imp_topics': A list of EXACTLY {kp_count} highly important sub-topics. CRITICAL RULE: You MUST prefix every single topic with its specific Unit (e.g., 'Unit 1: [Topic]').")
+            instructions.append(f"- 'imp_topics': A list of EXACTLY {kp_count} sub-topics. You MUST prefix every topic with its specific Unit (e.g., 'Unit 1: [Topic]').")
             json_template["imp_topics"] = ["Unit 1: ..."] * kp_count
             
         if "imp_questions" in request.preferences:
-            instructions.append(f"- 'imp_questions': A list of EXACTLY {q_count // 2} subjective questions for exam prep. CRITICAL RULE: You MUST prefix every single question with its specific Unit (e.g., 'Unit 1: [Question]').")
+            instructions.append(f"- 'imp_questions': A list of EXACTLY {q_count // 2} subjective questions. You MUST prefix every question with its specific Unit.")
             json_template["imp_questions"] = ["Unit 1: ..."] * (q_count // 2)
             
         if "short_questions" in request.preferences:
-            instructions.append(f"- 'short_questions': A combined list of EXACTLY {q_count} short objective questions. CRITICAL RULE: You MUST prefix each with the unit AND the mark (e.g., 'Unit 1 (1-Mark): [Question]' or 'Unit 2 (2-Mark): [Question]').")
+            instructions.append(f"- 'short_questions': A list of EXACTLY {q_count} objective questions. Prefix with unit and mark (e.g., 'Unit 1 (1-Mark): ...').")
             json_template["short_questions"] = ["Unit 1 (1-Mark): ..."] * q_count
 
         if "quiz" in request.preferences:
-            instructions.append(f"- 'quiz': A list of EXACTLY {q_count} multiple-choice questions. Ensure the questions pull evenly from all Units provided in the text.")
-            quiz_obj = {"question": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}
+            instructions.append(f"- 'quiz': A list of EXACTLY {q_count} MCQs pulling evenly from all Units.")
+            quiz_obj = {"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "...", "topic_tag": "..."}
             json_template["quiz"] = [quiz_obj] * q_count 
 
         prompt = f"""
-        TASK: You are an expert academic tutor. Analyze the STUDENT NOTES provided inside the <notes> tags below.
-        
-        <notes>
-        {request.content[:10000]}
-        </notes>
+        TASK: Analyze the STUDENT NOTES inside the <notes> tags. 
+        <notes>{request.content[:10000]}</notes>
 
-        Based EXCLUSIVELY on the STUDENT NOTES inside the tags above, fulfill these requirements:
+        Fulfill these requirements in chronological order by Unit:
         {chr(10).join(instructions)}
         
-        CRITICAL INSTRUCTION: You MUST fill out every single item array in the JSON template below. Do not skip any slots. Follow the prefixing rules exactly.
-        Return ONLY valid JSON matching this exact structure:
+        Return ONLY valid JSON. Ensure every array slot is filled.
         {json.dumps(json_template)}
         """
+        
+        raw_data = call_ollama(prompt)
+        
+        # --- APPLY THE SORTING LAYER ---
+        for key in ["key_points", "imp_topics", "imp_questions", "short_questions"]:
+            if key in raw_data and isinstance(raw_data[key], list):
+                raw_data[key] = sort_by_unit(raw_data[key])
+        
+        return raw_data
+
     else:
         weak_topics = ", ".join(list(set(session_errors)))
-        
         if not session_errors:
-            prompt = f"""
-            TASK: The student answered all previous questions correctly. Generate 1 highly advanced, difficult multiple-choice question based on the STUDENT NOTES provided below to test their ultimate mastery.
-            
-            <notes>
-            {request.content[:10000]}
-            </notes>
-
-            Return ONLY valid JSON matching this exact structure. Replace the placeholder text with your generated advanced question and options:
-            {{
-              "remediation_notes": "Congratulations on getting a perfect score! Here is a final advanced challenge to test your absolute mastery.", 
-              "targeted_quiz": [
-                {{
-                  "question": "ADVANCED: [Write a difficult question here]", 
-                  "options": ["[Option A]", "[Option B]", "[Option C]", "[Option D]"], 
-                  "correct_answer": "[Exact text of the correct option]", 
-                  "topic_tag": "advanced"
-                }}
-              ]
-            }}
-            """
+            prompt = f"TASK: Perfect score! Generate 1 advanced question from these notes: {request.content[:5000]}. Return JSON: {{'remediation_notes': '...', 'targeted_quiz': [...]}}"
         else:
-            prompt = f"""
-            TASK: The student struggled with the following topics: {weak_topics}. 
-            Generate a targeted review session based on the STUDENT NOTES provided below.
-            
-            <notes>
-            {request.content[:10000]}
-            </notes>
-
-            Return ONLY valid JSON matching this exact structure. Replace the placeholder text with your generated content:
-            {{
-              "remediation_notes": "[Write a 3-sentence deep-dive explanation specifically addressing the weak topics: {weak_topics}]", 
-              "targeted_quiz": [
-                {{
-                  "question": "[Write a new question specifically about {weak_topics}]", 
-                  "options": ["[Option A]", "[Option B]", "[Option C]", "[Option D]"], 
-                  "correct_answer": "[Exact text of the correct option]", 
-                  "topic_tag": "remedial"
-                }}
-              ]
-            }}
-            """
+            prompt = f"TASK: Review weak topics: {weak_topics}. Use notes: {request.content[:5000]}. Return JSON: {{'remediation_notes': '...', 'targeted_quiz': [...]}}"
             
     return call_ollama(prompt)
 
 @app.post("/api/track-error/")
 async def track_error(request: FeedbackRequest):
     global session_errors
-    
     if not request.is_correct: 
-        if request.concept not in session_errors:
-            session_errors.append(request.concept)
+        if request.concept not in session_errors: session_errors.append(request.concept)
     else:
-        if request.concept in session_errors:
-            session_errors.remove(request.concept)
-            
+        if request.concept in session_errors: session_errors.remove(request.concept)
     return {"status": "tracked", "remaining_weak_spots": len(session_errors)}
