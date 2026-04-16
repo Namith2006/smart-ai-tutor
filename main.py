@@ -100,43 +100,50 @@ async def generate_session(request: StudyRequest):
         session_errors = [] 
         text_length = len(request.content)
         
-        # --- DYNAMIC SCALING LOGIC FOR HIGHER DENSITY ---
+        # --- DYNAMIC SCALING LOGIC ---
+        # Dialed down slightly to maximize speed for the Hackathon Demo
         if text_length < 1500: 
-            q_count, kp_count = 5, 3
-            imp_topics_count = 6     
-            imp_questions_count = 5  
+            q_count, kp_count, imp_topics_count, imp_questions_count = 5, 3, 6, 5
         elif text_length < 5000: 
-            q_count, kp_count = 8, 6
-            imp_topics_count = 12    
-            imp_questions_count = 10 
+            q_count, kp_count, imp_topics_count, imp_questions_count = 8, 6, 10, 8
         else: 
-            q_count, kp_count = 12, 10
-            imp_topics_count = 18    
-            imp_questions_count = 15 
+            q_count, kp_count, imp_topics_count, imp_questions_count = 10, 8, 12, 10
         
-        # Unit references completely removed
-        json_template = {
-            "summary": "...",
-            "key_points": ["..."] * kp_count,
-            "imp_topics": ["..."] * imp_topics_count,
-            "imp_questions": ["..."] * imp_questions_count,
-            "short_questions": ["(1-Mark): ..."] * q_count,
-            "quiz": [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "...", "topic_tag": "..."}] * q_count
-        }
-        
-        instructions = [
-            f"- 'key_points': EXACTLY {kp_count} critical takeaways.",
-            f"- 'imp_topics': EXACTLY {imp_topics_count} sub-topics. Do not just list the name; include a 2-sentence highly technical summary of WHY it is important.",
-            f"- 'imp_questions': EXACTLY {imp_questions_count} tough, analytical, university-level subjective questions.",
-            f"- 'short_questions': EXACTLY {q_count} items prefixed with the Mark (e.g., '(1-Mark): ...' or '(2-Mark): ...').",
-            f"- 'quiz': EXACTLY {q_count} MCQs based exclusively on the provided text."
-        ]
+        # --- NEW: DYNAMIC PROMPT BUILDER ---
+        # This is the magic! It ONLY adds keys to the JSON if you checked the box in React.
+        json_template = {}
+        instructions = []
+
+        if "summary" in request.preferences:
+            json_template["summary"] = "..."
+            instructions.append("- 'summary': A comprehensive overview of the material.")
+
+        if "key_points" in request.preferences:
+            json_template["key_points"] = ["..."] * kp_count
+            instructions.append(f"- 'key_points': EXACTLY {kp_count} critical takeaways.")
+
+        if "imp_topics" in request.preferences:
+            json_template["imp_topics"] = ["..."] * imp_topics_count
+            instructions.append(f"- 'imp_topics': EXACTLY {imp_topics_count} sub-topics. Do not just list the name; include a 2-sentence highly technical summary of WHY it is important.")
+
+        if "imp_questions" in request.preferences:
+            json_template["imp_questions"] = ["..."] * imp_questions_count
+            instructions.append(f"- 'imp_questions': EXACTLY {imp_questions_count} tough, analytical, university-level subjective questions.")
+
+        if "short_questions" in request.preferences:
+            json_template["short_questions"] = ["(1-Mark): ..."] * q_count
+            instructions.append(f"- 'short_questions': EXACTLY {q_count} items prefixed with the Mark (e.g., '(1-Mark): ...').")
+
+        if "quiz" in request.preferences:
+            json_template["quiz"] = [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "...", "topic_tag": "..."}] * q_count
+            # This fixes the green/red grading bug by forcing Llama 3 to write the full answer:
+            instructions.append(f"- 'quiz': EXACTLY {q_count} MCQs based exclusively on the provided text. The 'correct_answer' field MUST be the exact, full string of the correct option. Do NOT just write 'A' or 'B'.")
 
         prompt = f"""
         TASK: Analyze notes inside <notes> tags. 
-        <notes>{request.content[:10000]}</notes>
+        <notes>{request.content[:5000]}</notes>
 
-        Return ONLY valid JSON. Fill every slot: {json.dumps(json_template)}
+        Return ONLY valid JSON. Fill every slot in this template: {json.dumps(json_template)}
         Rules: {chr(10).join(instructions)}
         """
         
