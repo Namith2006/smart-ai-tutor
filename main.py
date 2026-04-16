@@ -76,26 +76,27 @@ async def generate_session(request: StudyRequest):
         json_template = {}
         instructions = []
         
+        # --- UPDATED: Dynamic Scaling Prompts ---
         if "summary" in request.preferences:
-            instructions.append("- 'summary': A solid 2-sentence overview.")
+            instructions.append("- 'summary': A comprehensive summary. Scale the length dynamically (2 to 8 sentences) based on how much raw text was provided.")
             json_template["summary"] = "..."
         if "key_points" in request.preferences:
-            instructions.append("- 'key_points': A list of the 3 most important takeaways.")
-            json_template["key_points"] = ["...", "...", "..."]
+            instructions.append("- 'key_points': A list of important takeaways. Scale the number of points dynamically (from 3 up to 15) based on the length and depth of the input text.")
+            json_template["key_points"] = ["...", "..."]
         if "imp_topics" in request.preferences:
-            instructions.append("- 'imp_topics': A list of 3 highly important sub-topics the student should study.")
-            json_template["imp_topics"] = ["...", "...", "..."]
+            instructions.append("- 'imp_topics': A list of highly important sub-topics the student should study. Scale the amount dynamically (from 3 up to 10) based on input size.")
+            json_template["imp_topics"] = ["...", "..."]
         if "imp_questions" in request.preferences:
-            instructions.append("- 'imp_questions': A list of 2 short-answer/subjective questions for exam prep.")
+            instructions.append("- 'imp_questions': A list of short-answer/subjective questions for exam prep. Scale dynamically (from 2 up to 8 questions).")
             json_template["imp_questions"] = ["...", "..."]
             
         if "short_questions" in request.preferences:
-            instructions.append("- 'short_questions': A combined list of five 1-mark objective questions AND three 2-mark descriptive questions. Prefix each question with '(1-Mark)' or '(2-Mark)'.")
-            json_template["short_questions"] = ["(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(2-Mark) ...", "(2-Mark) ...", "(2-Mark) ..."]
+            instructions.append("- 'short_questions': A combined list of 1-mark and 2-mark questions. Scale dynamically (from 5 up to 15 questions) based on the input text volume. Prefix each with '(1-Mark)' or '(2-Mark)'.")
+            json_template["short_questions"] = ["(1-Mark) ...", "(2-Mark) ..."]
 
         if "quiz" in request.preferences:
-            instructions.append("- 'quiz': A list of EXACTLY 5 multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag').")
-            json_template["quiz"] = [{"question": "...", "options": ["Option 1 text", "Option 2 text", "Option 3 text", "Option 4 text"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}]
+            instructions.append("- 'quiz': A list of multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag'). Scale dynamically (from 5 up to 12 questions) depending on how much text was provided.")
+            json_template["quiz"] = [{"question": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}]
 
         prompt = f"""
         TASK: You are an expert academic tutor. Analyze the STUDENT NOTES provided inside the <notes> tags below.
@@ -114,7 +115,6 @@ async def generate_session(request: StudyRequest):
     else:
         weak_topics = ", ".join(list(set(session_errors)))
         
-        # --- FIXED: Passed content into the adaptive prompts so it generates real questions ---
         if not session_errors:
             prompt = f"""
             TASK: The student answered all previous questions correctly. Generate 1 highly advanced, difficult multiple-choice question based on the STUDENT NOTES provided below to test their ultimate mastery.
