@@ -44,7 +44,6 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
-# --- UPDATED: Syllabus Validation & UNIT-BASED MAXIMUM DATA Endpoint ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
     url = "http://localhost:11434/api/generate"
@@ -55,8 +54,8 @@ async def generate_from_topic(request: TopicRequest):
     
     Return ONLY valid JSON matching this exact structure:
     {{
-      "is_in_syllabus": true, // set to false if the topic strongly does not belong in this stream/year
-      "content": "If true, evaluate if '{request.topic}' is a broad full SUBJECT (like 'Database Management Systems' or 'Operating Systems') or a narrow TOPIC (like 'Normalization'). CRITICAL INSTRUCTION: If it is a full SUBJECT, you MUST break the study guide down strictly by syllabus UNITS (e.g., Unit 1: Introduction, Unit 2: Core Concepts, Unit 3: Advanced, etc.) providing exhaustive detail for each unit. If it is a narrow TOPIC, provide a deep-dive into just that specific concept without using units. If false, write a polite 2-sentence explanation of why this is not in their syllabus."
+      "is_in_syllabus": true, 
+      "content": "If true, determine if '{request.topic}' is a broad SUBJECT (like 'Operating Systems') or a narrow TOPIC. CRITICAL INSTRUCTION: If it is a full SUBJECT, you MUST organize the response by syllabus UNITS (e.g., Unit 1, Unit 2). For EVERY single Unit, you must first explicitly list the core TOPICS contained in that unit, and then provide a massive, exhaustive, textbook-level deep-dive explaining every single topic to its fullest capacity. Include technical definitions, core principles, and examples. Leave no sub-topic unexplained. If it is a narrow TOPIC, provide the same exhaustive deep-dive into just that concept. If false, write a polite 2-sentence explanation of why."
     }}
     """
     
@@ -73,46 +72,46 @@ async def generate_session(request: StudyRequest):
     if request.mode == "initial":
         session_errors = [] 
         
-        # --- PYTHON CALCULATOR FOR DYNAMIC SCALING ---
+        # --- PYTHON CALCULATOR ---
         text_length = len(request.content)
-        if text_length < 1500: # Short notes
+        if text_length < 1500: 
             q_count = 5
             kp_count = 3
-        elif text_length < 5000: # Medium notes / pages
+        elif text_length < 5000: 
             q_count = 8
             kp_count = 6
-        else: # Massive textbook data
+        else: 
             q_count = 12
             kp_count = 10
-        # --------------------------------------------------
-
+        
         json_template = {}
         instructions = []
         
+        # --- SMART PREFIXING IMPLEMENTED BELOW ---
         if "summary" in request.preferences:
-            instructions.append("- 'summary': A comprehensive overview of the text.")
+            instructions.append("- 'summary': A comprehensive overview of the text. If the text contains distinct Units, briefly summarize what each Unit covers.")
             json_template["summary"] = "..."
             
         if "key_points" in request.preferences:
-            instructions.append(f"- 'key_points': A list of EXACTLY {kp_count} important takeaways.")
-            json_template["key_points"] = ["..."] * kp_count # Forces LLM to fill exact slots
+            instructions.append(f"- 'key_points': A list of EXACTLY {kp_count} important takeaways. CRITICAL RULE: You MUST prefix every single point with its specific Unit from the notes (e.g., 'Unit 1: [Takeaway]'). Ensure items are distributed evenly across all Units. If no units exist, use 'General:'.")
+            json_template["key_points"] = ["Unit 1: ..."] * kp_count
             
         if "imp_topics" in request.preferences:
-            instructions.append(f"- 'imp_topics': A list of EXACTLY {kp_count} highly important sub-topics.")
-            json_template["imp_topics"] = ["..."] * kp_count
+            instructions.append(f"- 'imp_topics': A list of EXACTLY {kp_count} highly important sub-topics. CRITICAL RULE: You MUST prefix every single topic with its specific Unit (e.g., 'Unit 1: [Topic]').")
+            json_template["imp_topics"] = ["Unit 1: ..."] * kp_count
             
         if "imp_questions" in request.preferences:
-            instructions.append(f"- 'imp_questions': A list of EXACTLY {q_count // 2} subjective questions for exam prep.")
-            json_template["imp_questions"] = ["..."] * (q_count // 2)
+            instructions.append(f"- 'imp_questions': A list of EXACTLY {q_count // 2} subjective questions for exam prep. CRITICAL RULE: You MUST prefix every single question with its specific Unit (e.g., 'Unit 1: [Question]').")
+            json_template["imp_questions"] = ["Unit 1: ..."] * (q_count // 2)
             
         if "short_questions" in request.preferences:
-            instructions.append(f"- 'short_questions': A combined list of EXACTLY {q_count} short objective questions. Prefix each with '(1-Mark)' or '(2-Mark)'.")
-            json_template["short_questions"] = ["..."] * q_count
+            instructions.append(f"- 'short_questions': A combined list of EXACTLY {q_count} short objective questions. CRITICAL RULE: You MUST prefix each with the unit AND the mark (e.g., 'Unit 1 (1-Mark): [Question]' or 'Unit 2 (2-Mark): [Question]').")
+            json_template["short_questions"] = ["Unit 1 (1-Mark): ..."] * q_count
 
         if "quiz" in request.preferences:
-            instructions.append(f"- 'quiz': A list of EXACTLY {q_count} multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag').")
+            instructions.append(f"- 'quiz': A list of EXACTLY {q_count} multiple-choice questions. Ensure the questions pull evenly from all Units provided in the text.")
             quiz_obj = {"question": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}
-            json_template["quiz"] = [quiz_obj] * q_count # Duplicates the object perfectly!
+            json_template["quiz"] = [quiz_obj] * q_count 
 
         prompt = f"""
         TASK: You are an expert academic tutor. Analyze the STUDENT NOTES provided inside the <notes> tags below.
@@ -124,7 +123,7 @@ async def generate_session(request: StudyRequest):
         Based EXCLUSIVELY on the STUDENT NOTES inside the tags above, fulfill these requirements:
         {chr(10).join(instructions)}
         
-        CRITICAL INSTRUCTION: You MUST fill out every single item array in the JSON template below. Do not skip any slots.
+        CRITICAL INSTRUCTION: You MUST fill out every single item array in the JSON template below. Do not skip any slots. Follow the prefixing rules exactly.
         Return ONLY valid JSON matching this exact structure:
         {json.dumps(json_template)}
         """
