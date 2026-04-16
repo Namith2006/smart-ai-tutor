@@ -2,12 +2,11 @@ import { useState } from 'react'
 import axios from 'axios'
 
 function App() {
+  // --- STATE MANAGEMENT ---
   const [currentStep, setCurrentStep] = useState('selection')
   const [inputType, setInputType] = useState(null)
-
   const [inputText, setInputText] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
-
   const [topic, setTopic] = useState('')
   const [topicStream, setTopicStream] = useState('BCA')
   const [topicYear, setTopicYear] = useState('2nd Year')
@@ -25,22 +24,20 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState('Processing...')
   const [sessionData, setSessionData] = useState(null)
-
   const [answeredCount, setAnsweredCount] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false)
-
   const [weakTopics, setWeakTopics] = useState([])
-
   const [adaptiveAnsweredCount, setAdaptiveAnsweredCount] = useState(0)
   const [adaptiveSelectedAnswer, setAdaptiveSelectedAnswer] = useState(null)
   const [adaptiveIsAnswerRevealed, setAdaptiveIsAnswerRevealed] = useState(false)
+
+  // --- HANDLERS ---
 
   const handleToggle = (key) => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  // --- MAIN PROCESS HANDLER ---
   const handleStartProcess = async () => {
     const selectedPrefs = Object.keys(preferences).filter(k => preferences[k]);
     if (selectedPrefs.length === 0) return alert("Please select at least one output type!");
@@ -78,9 +75,9 @@ function App() {
         finalRawText = res.data.content;
       }
 
-      // --- SAFETY CHECK TO PREVENT 422 ERROR ---
+      // Safety check to prevent 422 errors
       if (!finalRawText || typeof finalRawText !== 'string') {
-        throw new Error("AI failed to generate content. Please try a different topic.");
+        throw new Error("AI failed to generate content.");
       }
 
       setInputText(finalRawText);
@@ -103,7 +100,6 @@ function App() {
       } else {
         setCurrentStep('results_only');
       }
-
     } catch (err) {
       console.error("AXIOS ERROR:", err.response ? err.response.data : err.message);
       alert("Error communicating with backend. Please try again.");
@@ -111,11 +107,9 @@ function App() {
     setLoading(false);
   };
 
-  // --- QUIZ HANDLERS ---
   const handleAnswerSubmit = async (selected, correct, topicTag) => {
     setSelectedAnswer(selected);
     setIsAnswerRevealed(true);
-
     const safeSelected = String(selected).trim().toLowerCase();
     const safeCorrect = String(correct).trim().toLowerCase();
     const isCorrect = safeSelected === safeCorrect || safeSelected.includes(safeCorrect) || safeCorrect.includes(safeSelected);
@@ -137,11 +131,9 @@ function App() {
     }
   };
 
-  // --- ADAPTIVE SESSION HANDLERS ---
   const handleAdaptiveAnswerSubmit = async (selected, correct, topicTag) => {
     setAdaptiveSelectedAnswer(selected);
     setAdaptiveIsAnswerRevealed(true);
-
     const safeSelected = String(selected).trim().toLowerCase();
     const safeCorrect = String(correct).trim().toLowerCase();
     const isCorrect = safeSelected === safeCorrect || safeSelected.includes(safeCorrect) || safeCorrect.includes(safeSelected);
@@ -164,10 +156,8 @@ function App() {
     setLoading(true);
     setLoadingMessage("Generating personalized review loop...");
     try {
-      // Safety fallback for adaptive content
-      const contentForAI = inputText || "No notes provided.";
       const res = await axios.post('http://127.0.0.1:8000/api/generate-session/', { 
-        content: contentForAI, 
+        content: inputText, 
         mode: 'adaptive', 
         preferences: [] 
       });
@@ -180,9 +170,9 @@ function App() {
     setLoading(false);
   };
 
-  // --- UI STYLES & COMPONENTS ---
-  const ulStyle = { textAlign: 'left', paddingLeft: '40px', lineHeight: '1.6', fontSize: '1.1rem' };
-  const pStyle = { textAlign: 'left', lineHeight: '1.6', fontSize: '1.1rem' };
+  // --- UI HELPER COMPONENTS ---
+  const ulStyle = { textAlign: 'left', paddingLeft: '40px', lineHeight: '1.6', fontSize: '1.1rem', color: '#333' };
+  const pStyle = { textAlign: 'left', lineHeight: '1.6', fontSize: '1.1rem', color: '#333' };
 
   const RenderCustomOutputs = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
@@ -213,18 +203,13 @@ function App() {
         <div style={{ background: '#f8f9fa', padding: '30px', borderRadius: '10px', animation: 'fadeIn 0.5s' }}>
           <button onClick={() => setCurrentStep('selection')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', marginBottom: '20px' }}>← Back</button>
 
-          {inputType === 'text' && <textarea rows="6" style={{ width: '100%', padding: '15px', borderRadius: '8px' }} placeholder="Paste your raw notes here..." onChange={(e) => setInputText(e.target.value)} />}
+          {inputType === 'text' && <textarea rows="6" style={{ width: '100%', padding: '15px', borderRadius: '8px', color: '#333' }} placeholder="Paste your raw notes here..." onChange={(e) => setInputText(e.target.value)} />}
           {inputType === 'pdf' && <div style={{ padding: '40px', border: '2px dashed #ccc', textAlign: 'center', background: '#fff' }}><input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files[0])} /></div>}
 
           {inputType === 'topic' && (
             <div style={{ animation: 'fadeIn 0.5s' }}>
               <h3 style={{ marginTop: 0 }}>What topic do you need help with?</h3>
-              <input
-                type="text"
-                style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px' }}
-                placeholder="e.g., Database Management Systems, Ethical Hacking..."
-                onChange={(e) => setTopic(e.target.value)}
-              />
+              <input type="text" style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px', color: '#333' }} placeholder="e.g., Database Management Systems..." onChange={(e) => setTopic(e.target.value)} />
 
               <h3 style={{ marginTop: '10px' }}>Personalize (SEP Syllabus):</h3>
               <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
@@ -255,7 +240,7 @@ function App() {
             <h3 style={{ marginTop: 0 }}>What should the AI generate?</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {Object.keys(preferences).map(key => (
-                <label key={key} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '10px', background: preferences[key] ? '#eef2ff' : '#f8f9fa', borderRadius: '5px', border: `1px solid ${preferences[key] ? '#b6d4fe' : '#ddd'}` }}>
+                <label key={key} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '10px', background: preferences[key] ? '#eef2ff' : '#f8f9fa', borderRadius: '5px', border: `1px solid ${preferences[key] ? '#b6d4fe' : '#ddd'}`, color: '#333' }}>
                   <input type="checkbox" checked={preferences[key]} onChange={() => handleToggle(key)} style={{ marginRight: '10px' }} />
                   {key.replace(/_/g, ' ').toUpperCase()}
                 </label>
@@ -313,11 +298,11 @@ function App() {
 
       {currentStep === 'decision' && !loading && (
         <div style={{ textAlign: 'center', padding: '50px', background: '#f0f4f8', borderRadius: '15px', animation: 'fadeIn 0.5s' }}>
-          <h2>Quiz Finished! 🏁</h2>
+          <h2 style={{ color: '#111' }}>Quiz Finished! 🏁</h2>
           {weakTopics.length > 0 ? (
             <div style={{ background: '#f8d7da', padding: '20px', borderRadius: '12px', border: '1px solid #f5c2c7', maxWidth: '500px', margin: '0 auto 30px auto', textAlign: 'left' }}>
               <h3 style={{ color: '#842029', marginTop: 0 }}>📊 Performance Analysis</h3>
-              <ul>{weakTopics.map((topic, index) => (<li key={index}>{topic.toUpperCase()}</li>))}</ul>
+              <ul style={{ color: '#842029' }}>{weakTopics.map((topic, index) => (<li key={index}>{topic.toUpperCase()}</li>))}</ul>
             </div>
           ) : (
             <div style={{ background: '#d1e7dd', padding: '20px', borderRadius: '12px', border: '1px solid #badbcc', maxWidth: '500px', margin: '0 auto 30px auto' }}>
@@ -335,25 +320,19 @@ function App() {
         <div style={{ animation: 'fadeIn 0.5s' }}>
           <div style={{ background: '#fff3cd', padding: '25px', borderRadius: '12px', border: '1px solid #ffeeba', marginBottom: '20px' }}>
             <h2 style={{ color: '#856404', marginTop: 0 }}>🔥 Targeted Deep Dive</h2>
-            <p>{sessionData.remediation_notes}</p>
+            <p style={{ color: '#856404' }}>{sessionData.remediation_notes}</p>
           </div>
           {sessionData.targeted_quiz && sessionData.targeted_quiz.length > 0 && adaptiveAnsweredCount < sessionData.targeted_quiz.length ? (
             <div style={{ background: '#fff', padding: '20px', border: '1px solid #eee', borderRadius: '10px' }}>
               <h3>Mastery Check ({adaptiveAnsweredCount + 1} of {sessionData.targeted_quiz.length})</h3>
-              <p style={{ fontWeight: 'bold' }}>{sessionData.targeted_quiz[adaptiveAnsweredCount].question}</p>
+              <p style={{ fontWeight: 'bold', color: '#111' }}>{sessionData.targeted_quiz[adaptiveAnsweredCount].question}</p>
               {sessionData.targeted_quiz[adaptiveAnsweredCount].options?.map((opt, i) => {
-                const safeCorrect = String(sessionData.targeted_quiz[adaptiveAnsweredCount].correct_answer).trim().toLowerCase();
-                const safeOpt = String(opt).trim().toLowerCase();
-                const isCorrectOpt = safeOpt === safeCorrect || safeOpt.includes(safeCorrect) || safeCorrect.includes(safeOpt);
-                const isSelectedOpt = opt === adaptiveSelectedAnswer;
-                let btnBg = '#f8f9fa'; let btnBorder = '#ddd';
-                if (adaptiveIsAnswerRevealed) {
-                  if (isCorrectOpt) { btnBg = '#d1e7dd'; btnBorder = '#198754'; }
-                  else if (isSelectedOpt) { btnBg = '#f8d7da'; btnBorder = '#dc3545'; }
-                }
+                const isSelected = opt === adaptiveSelectedAnswer;
+                let btnBg = '#f8f9fa';
+                if (adaptiveIsAnswerRevealed && isSelected) btnBg = '#eef2ff';
                 return (
                   <button key={i} disabled={adaptiveIsAnswerRevealed} onClick={() => handleAdaptiveAnswerSubmit(opt, sessionData.targeted_quiz[adaptiveAnsweredCount].correct_answer, sessionData.targeted_quiz[adaptiveAnsweredCount].topic_tag)}
-                    style={{ display: 'block', width: '100%', margin: '10px 0', padding: '15px', textAlign: 'left', borderRadius: '8px', border: `2px solid ${btnBorder}`, background: btnBg }}>
+                    style={{ display: 'block', width: '100%', margin: '10px 0', padding: '15px', textAlign: 'left', borderRadius: '8px', border: '2px solid #ddd', background: btnBg, color: '#111' }}>
                     {opt}
                   </button>
                 )
@@ -362,7 +341,7 @@ function App() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '40px', background: '#d1e7dd', borderRadius: '12px' }}>
-              <h2>🏆 Total Mastery Achieved!</h2>
+              <h2 style={{ color: '#0f5132' }}>🏆 Total Mastery Achieved!</h2>
               <button onClick={() => window.location.reload()} style={{ padding: '15px 40px', background: '#198754', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>Finish & Exit ➔</button>
             </div>
           )}
@@ -379,8 +358,8 @@ function App() {
   );
 }
 
-const btnStyle = { flex: 1, padding: '25px', fontSize: '1.1rem', fontWeight: 'bold', background: '#fff', border: '2px solid #007bff', color: '#007bff', borderRadius: '12px', cursor: 'pointer' };
+const btnStyle = { flex: 1, padding: '25px', fontSize: '1.1rem', fontWeight: 'bold', background: '#fff', border: '2px solid #007bff', color: '#007bff', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s' };
 const cardStyle = { background: '#eef2ff', padding: '20px', borderRadius: '10px' };
-const dropdownStyle = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', background: '#fff' };
+const dropdownStyle = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', background: '#fff', color: '#333', cursor: 'pointer' };
 
 export default App;
