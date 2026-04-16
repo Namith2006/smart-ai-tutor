@@ -4,10 +4,18 @@ from pydantic import BaseModel
 import PyPDF2, io, requests, json, re
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# Allow frontend to communicate with backend
+app.add_middleware(
+    CORSMiddleware, 
+    allow_origins=["*"], 
+    allow_methods=["*"], 
+    allow_headers=["*"]
+)
 
 session_errors = []
 
+# --- MODELS ---
 class StudyRequest(BaseModel):
     content: str
     mode: str 
@@ -23,38 +31,35 @@ class TopicRequest(BaseModel):
     year: str
     university: str
 
-# --- HELPER: SORT UNITS NUMERICALLY ---
-def sort_by_unit(items):
-    def extract_unit_number(text):
-        match = re.search(r"Unit\s+(\d+\.?\d*)", text, re.IGNORECASE)
-        if match:
-            return float(match.group(1))
-        return 999.0 
-    return sorted(items, key=extract_unit_number)
+# --- HELPERS ---
 
-# --- UPDATED: THE BULLETPROOF CALL_OLLAMA WITH JSON SCRUBBER ---
 def call_ollama(prompt):
+    """Sends prompt to Llama 3 with JSON scrubbing and timeout protection."""
     url = "http://localhost:11434/api/generate"
     try:
-        # 120s timeout is critical for full subject generation
-        response = requests.post(url, json={"model": "llama3", "prompt": prompt, "stream": False, "format": "json"}, timeout=120)
+        # 120s timeout ensures the GPU has enough time for deep-dives
+        response = requests.post(
+            url, 
+            json={"model": "llama3", "prompt": prompt, "stream": False, "format": "json"}, 
+            timeout=120
+        )
         raw_response = response.json().get("response", "")
         
-        # THE JSON SCRUBBER: This finds the JSON block even if the AI is "chatty"
-        # It looks for the first '{' and the last '}'
+        # THE JSON SCRUBBER: Extracts only the valid JSON block
         match = re.search(r'(\{.*\})', raw_response, re.DOTALL)
         if match:
-            clean_json = match.group(1)
-            return json.loads(clean_json)
-        else:
-            return json.loads(raw_response) # Fallback if regex fails
+            return json.loads(match.group(1))
+        return json.loads(raw_response)
             
     except Exception as e:
-        print(f"CRITICAL BACKEND ERROR: {str(e)}")
-        return {"error": "AI failed to respond.", "is_in_syllabus": True, "content": "The AI engine is busy. Please try again in a moment."}
+        print(f"Ollama Error: {str(e)}")
+        return {"error": "Inference Timeout", "is_in_syllabus": True, "content": "AI is busy or taking too long. Please try a more specific topic."}
+
+# --- ENDPOINTS ---
 
 @app.post("/api/extract-text/")
 async def extract_text(file: UploadFile = File(...)):
+    """Handles PDF and TXT file parsing."""
     content = await file.read()
     extracted_text = ""
     if file.filename.lower().endswith(".pdf"):
@@ -66,88 +71,92 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
-# --- SYLLABUS GATEKEEPER (Loosened for Demo Stability) ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
+    """Concept Specialist: Deep-dives into topics while rejecting broad subjects."""
     prompt = f"""
-    You are an expert academic advisor for {request.university}.
-    TASK: Provide exhaustive educational content for '{request.topic}' for a {request.year} {request.stream} student.
+    You are an expert academic tutor for {request.university}.
     
-    GUIDELINE: Align with State Educational Policy (SEP) standards. 
-    STABILITY RULE: Unless the topic is absolute gibberish, treat "is_in_syllabus" as true.
+    TASK: Evaluate if '{request.topic}' is a broad full SUBJECT (e.g., 'Operating Systems', 'DBMS') 
+    or a narrow, specific TOPIC/CONCEPT (e.g., 'Deadlock Prevention', 'Normalization').
     
+    FILTRATION RULE:
+    1. If broad SUBJECT: Set "is_in_syllabus" to false.
+    2. If specific TOPIC: Set "is_in_syllabus" to true.
+
     Return ONLY valid JSON:
     {{
       "is_in_syllabus": true, 
-      "content": "If the input is a SUBJECT, organize strictly by syllabus UNITS. For every Unit, list the TOPICS and then provide a massive, exhaustive, textbook-level deep-dive for each topic. If it is a narrow TOPIC, provide a massive high-detail explanation. Use 100% capacity."
+      "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}' including formal definitions, technical principles, and examples. If false, write: 'This appears to be a full subject. Please enter a specific concept (e.g., instead of {request.topic}, try a specific unit topic) for a deep-dive analysis.'"
     }}
     """
     return call_ollama(prompt)
 
 @app.post("/api/generate-session/")
 async def generate_session(request: StudyRequest):
+    """Main engine for generating study guides and interactive quizzes."""
     global session_errors
     
     if request.mode == "initial":
         session_errors = [] 
         text_length = len(request.content)
         
-        # Dynamic Scaling
+        # --- DYNAMIC SCALING LOGIC FOR HIGHER DENSITY ---
         if text_length < 1500: 
             q_count, kp_count = 5, 3
+            imp_topics_count = 6     
+            imp_questions_count = 5  
         elif text_length < 5000: 
             q_count, kp_count = 8, 6
+            imp_topics_count = 12    
+            imp_questions_count = 10 
         else: 
             q_count, kp_count = 12, 10
+            imp_topics_count = 18    
+            imp_questions_count = 15 
         
+        # Removed "Unit 1:" from the template placeholders
         json_template = {
             "summary": "...",
-            "key_points": ["Unit 1: ..."] * kp_count,
-            "imp_topics": ["Unit 1: ..."] * kp_count,
-            "imp_questions": ["Unit 1: ..."] * (q_count // 2),
-            "short_questions": ["Unit 1 (1-Mark): ..."] * q_count,
+            "key_points": ["..."] * kp_count,
+            "imp_topics": ["..."] * imp_topics_count,
+            "imp_questions": ["..."] * imp_questions_count,
+            "short_questions": ["(1-Mark): ..."] * q_count,
             "quiz": [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "...", "topic_tag": "..."}] * q_count
         }
         
+        # Removed "Prefix each with its Unit" from instructions
         instructions = [
-            "- 'summary': Comprehensive overview following Unit progression.",
-            f"- 'key_points': EXACTLY {kp_count} points. Prefix each with its Unit (e.g., 'Unit 1: ...').",
-            f"- 'imp_topics': EXACTLY {kp_count} sub-topics. Prefix each with its Unit.",
-            f"- 'imp_questions': EXACTLY {q_count // 2} subjective questions. Prefix each with its Unit.",
-            f"- 'short_questions': EXACTLY {q_count} objective items. Prefix with Unit and Mark (e.g., 'Unit 1 (1-Mark): ...').",
-            f"- 'quiz': EXACTLY {q_count} MCQs pulling evenly from all Units."
+            f"- 'key_points': EXACTLY {kp_count} critical takeaways.",
+            f"- 'imp_topics': EXACTLY {imp_topics_count} sub-topics. Do not just list the name; include a 2-sentence highly technical summary of WHY it is important.",
+            f"- 'imp_questions': EXACTLY {imp_questions_count} tough, analytical, university-level subjective questions.",
+            f"- 'short_questions': EXACTLY {q_count} items prefixed with the Mark (e.g., '(1-Mark): ...' or '(2-Mark): ...').",
+            f"- 'quiz': EXACTLY {q_count} MCQs based exclusively on the provided text."
         ]
 
         prompt = f"""
         TASK: Analyze notes inside <notes> tags. 
         <notes>{request.content[:10000]}</notes>
 
-        Return ONLY valid JSON matching this template. Fill every slot:
-        {json.dumps(json_template)}
-        
+        Return ONLY valid JSON. Fill every slot: {json.dumps(json_template)}
         Rules: {chr(10).join(instructions)}
         """
         
-        raw_data = call_ollama(prompt)
-        
-        # Apply the Sorting Layer to ensure Chronological Units
-        for key in ["key_points", "imp_topics", "imp_questions", "short_questions"]:
-            if key in raw_data and isinstance(raw_data[key], list):
-                raw_data[key] = sort_by_unit(raw_data[key])
-        
-        return raw_data
+        return call_ollama(prompt)
 
     else:
+        # Adaptive Remediation Logic
         weak_topics = ", ".join(list(set(session_errors)))
         if not session_errors:
-            prompt = f"TASK: Perfect score! Generate 1 advanced MCQ from these notes: {request.content[:5000]}. Return JSON: {{'remediation_notes': '...', 'targeted_quiz': [...]}}"
+            prompt = f"TASK: Perfect score! Generate 1 advanced question from: {request.content[:5000]}. Return JSON with 'remediation_notes' and 'targeted_quiz'."
         else:
-            prompt = f"TASK: Review weak topics: {weak_topics}. Use notes: {request.content[:5000]}. Return JSON: {{'remediation_notes': '...', 'targeted_quiz': [...]}}"
+            prompt = f"TASK: Review weak topics: {weak_topics}. Use notes: {request.content[:5000]}. Return JSON with 'remediation_notes' and 'targeted_quiz'."
             
     return call_ollama(prompt)
 
 @app.post("/api/track-error/")
 async def track_error(request: FeedbackRequest):
+    """Tracks and removes weak concepts for the Adaptive Review loop."""
     global session_errors
     if not request.is_correct: 
         if request.concept not in session_errors: session_errors.append(request.concept)

@@ -57,7 +57,7 @@ function App() {
         const res = await axios.post('http://127.0.0.1:8000/api/extract-text/', formData);
         finalRawText = res.data.text;
       } else if (inputType === 'topic') {
-        if (!topic) return alert("Please enter a topic.");
+        if (!topic) return alert("Please enter a concept.");
         setLoadingMessage("Checking syllabus relevance (SEP)...");
 
         const res = await axios.post('http://127.0.0.1:8000/api/generate-from-topic/', {
@@ -67,17 +67,30 @@ function App() {
           university: topicUni
         });
 
+        // Debugger for Hackathon presentation
+        console.log("RAW BACKEND RESPONSE:", res.data);
+
+        if (res.data.error) {
+           alert(`Backend Error: ${res.data.content || "The AI Engine is busy or timed out."}`);
+           setLoading(false);
+           return;
+        }
+
         if (res.data.is_in_syllabus === false) {
-          alert(`🚫 OUT OF SYLLABUS!\n\n${res.data.content}`);
+          alert(`🚫 CONCEPT FILTER TRIGGERED!\n\n${res.data.content}`);
           setLoading(false);
           return;
         }
+        
         finalRawText = res.data.content;
       }
 
       // Safety check to prevent 422 error
       if (!finalRawText || typeof finalRawText !== 'string') {
-        throw new Error("AI failed to generate content.");
+        console.error("FAILED TEXT DATA:", finalRawText);
+        alert("The AI generated an invalid format. Please press F12 and check the Console for details.");
+        setLoading(false);
+        return;
       }
 
       setInputText(finalRawText);
@@ -102,7 +115,7 @@ function App() {
       }
     } catch (err) {
       console.error("AXIOS ERROR:", err.response ? err.response.data : err.message);
-      alert("Error communicating with backend. Please try again.");
+      alert("Error communicating with backend. Is your Python server running?");
     }
     setLoading(false);
   };
@@ -194,7 +207,7 @@ function App() {
           <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '30px' }}>
             <button onClick={() => { setInputType('text'); setCurrentStep('input'); }} style={btnStyle}>📝 Paste Notes</button>
             <button onClick={() => { setInputType('pdf'); setCurrentStep('input'); }} style={btnStyle}>📄 Upload PDF</button>
-            <button onClick={() => { setInputType('topic'); setCurrentStep('input'); }} style={btnStyle}>💡 Give a Topic</button>
+            <button onClick={() => { setInputType('topic'); setCurrentStep('input'); }} style={btnStyle}>💡 Specific Concept</button>
           </div>
         </div>
       )}
@@ -204,12 +217,12 @@ function App() {
           <button onClick={() => setCurrentStep('selection')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', marginBottom: '20px' }}>← Back</button>
 
           {inputType === 'text' && <textarea rows="6" style={{ width: '100%', padding: '15px', borderRadius: '8px', color: '#000', background: '#fff' }} placeholder="Paste your raw notes here..." onChange={(e) => setInputText(e.target.value)} />}
-          {inputType === 'pdf' && <div style={{ padding: '40px', border: '2px dashed #ccc', textAlign: 'center', background: '#fff' }}><input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files[0])} /></div>}
+          {inputType === 'pdf' && <div style={{ padding: '40px', border: '2px dashed #ccc', textAlign: 'center', background: '#fff', color: '#000' }}><input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files[0])} /></div>}
 
           {inputType === 'topic' && (
             <div style={{ animation: 'fadeIn 0.5s' }}>
-              <h3 style={{ marginTop: 0, color: '#007bff' }}>What topic do you need help with?</h3>
-              <input type="text" style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px', color: '#000', background: '#fff' }} placeholder="e.g., Database Management Systems..." onChange={(e) => setTopic(e.target.value)} />
+              <h3 style={{ marginTop: 0, color: '#007bff' }}>What specific concept do you need help with?</h3>
+              <input type="text" style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px', color: '#000', background: '#fff' }} placeholder="e.g., Deadlock Prevention, Normalization..." onChange={(e) => setTopic(e.target.value)} />
 
               <h3 style={{ marginTop: '10px', color: '#007bff' }}>Personalize (SEP Syllabus):</h3>
               <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
@@ -310,8 +323,8 @@ function App() {
             </div>
           )}
           <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-            <button onClick={startAdaptiveSession} style={{ padding: '15px 30px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>Start Adaptive Review 🚀</button>
-            <button onClick={() => window.location.reload()} style={{ padding: '15px 30px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '8px' }}>Quit Early</button>
+            <button onClick={startAdaptiveSession} style={{ padding: '15px 30px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Start Adaptive Review 🚀</button>
+            <button onClick={() => window.location.reload()} style={{ padding: '15px 30px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Quit Early</button>
           </div>
         </div>
       )}
@@ -332,17 +345,17 @@ function App() {
                 if (adaptiveIsAnswerRevealed && isSelected) btnBg = '#eef2ff';
                 return (
                   <button key={i} disabled={adaptiveIsAnswerRevealed} onClick={() => handleAdaptiveAnswerSubmit(opt, sessionData.targeted_quiz[adaptiveAnsweredCount].correct_answer, sessionData.targeted_quiz[adaptiveAnsweredCount].topic_tag)}
-                    style={{ display: 'block', width: '100%', margin: '10px 0', padding: '15px', textAlign: 'left', borderRadius: '8px', border: '2px solid #ddd', background: btnBg, color: '#111' }}>
+                    style={{ display: 'block', width: '100%', margin: '10px 0', padding: '15px', textAlign: 'left', borderRadius: '8px', border: '2px solid #ddd', background: btnBg, color: '#111', cursor: adaptiveIsAnswerRevealed ? 'default' : 'pointer' }}>
                     {opt}
                   </button>
                 )
               })}
-              {adaptiveIsAnswerRevealed && <button onClick={handleNextAdaptiveQuestion} style={{ width: '100%', padding: '15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', marginTop: '15px' }}>Next ➔</button>}
+              {adaptiveIsAnswerRevealed && <button onClick={handleNextAdaptiveQuestion} style={{ width: '100%', padding: '15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', marginTop: '15px', cursor: 'pointer', fontWeight: 'bold' }}>Next ➔</button>}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '40px', background: '#d1e7dd', borderRadius: '12px' }}>
               <h2 style={{ color: '#0f5132' }}>🏆 Total Mastery Achieved!</h2>
-              <button onClick={() => window.location.reload()} style={{ padding: '15px 40px', background: '#198754', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>Finish & Exit ➔</button>
+              <button onClick={() => window.location.reload()} style={{ padding: '15px 40px', background: '#198754', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Finish & Exit ➔</button>
             </div>
           )}
         </div>
