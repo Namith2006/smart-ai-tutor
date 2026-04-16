@@ -8,6 +8,8 @@ function App() {
   const [inputText, setInputText] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [topic, setTopic] = useState('')
+  
+  // SEP Personalization State
   const [topicStream, setTopicStream] = useState('BCA')
   const [topicYear, setTopicYear] = useState('2nd Year')
   const [topicUni, setTopicUni] = useState('BCU')
@@ -28,6 +30,8 @@ function App() {
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [isAnswerRevealed, setIsAnswerRevealed] = useState(false)
   const [weakTopics, setWeakTopics] = useState([])
+  
+  // Adaptive Loop State
   const [adaptiveAnsweredCount, setAdaptiveAnsweredCount] = useState(0)
   const [adaptiveSelectedAnswer, setAdaptiveSelectedAnswer] = useState(null)
   const [adaptiveIsAnswerRevealed, setAdaptiveIsAnswerRevealed] = useState(false)
@@ -58,7 +62,7 @@ function App() {
         finalRawText = res.data.text;
       } else if (inputType === 'topic') {
         if (!topic) return alert("Please enter a concept.");
-        setLoadingMessage("Checking syllabus relevance (SEP)...");
+        setLoadingMessage("Auditing syllabus relevance (SEP)...");
 
         const res = await axios.post('http://127.0.0.1:8000/api/generate-from-topic/', {
           topic: topic,
@@ -67,8 +71,7 @@ function App() {
           university: topicUni
         });
 
-        // Debugger for Hackathon presentation
-        console.log("RAW BACKEND RESPONSE:", res.data);
+        console.log("RAW BACKEND RESPONSE:", res.data); // Crucial for Hackathon Debugging
 
         if (res.data.error) {
            alert(`Backend Error: ${res.data.content || "The AI Engine is busy or timed out."}`);
@@ -76,8 +79,9 @@ function App() {
            return;
         }
 
+        // --- UPDATED ALERT: Covers both Wrong Syllabus AND Broad Subjects ---
         if (res.data.is_in_syllabus === false) {
-          alert(`🚫 CONCEPT FILTER TRIGGERED!\n\n${res.data.content}`);
+          alert(`🚫 SYLLABUS AUDIT ALERT!\n\n${res.data.content}`);
           setLoading(false);
           return;
         }
@@ -94,7 +98,7 @@ function App() {
       }
 
       setInputText(finalRawText);
-      setLoadingMessage("Customizing your learning session...");
+      setLoadingMessage("Customizing your Master Class...");
 
       const sessionRes = await axios.post('http://127.0.0.1:8000/api/generate-session/', {
         content: finalRawText,
@@ -189,11 +193,11 @@ function App() {
 
   const RenderCustomOutputs = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
-      {sessionData.summary && <div style={cardStyle}><h3>📖 Summary</h3><p style={pStyle}>{sessionData.summary}</p></div>}
-      {sessionData.key_points && <div style={cardStyle}><h3>🔑 Key Points</h3><ul style={ulStyle}>{sessionData.key_points.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.imp_topics && <div style={cardStyle}><h3>📌 Important Topics to Study</h3><ul style={ulStyle}>{sessionData.imp_topics.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.imp_questions && <div style={cardStyle}><h3>✍️ Exam Prep Questions</h3><ul style={ulStyle}>{sessionData.imp_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.short_questions && <div style={cardStyle}><h3>🎯 1 & 2 Mark Questions</h3><ul style={ulStyle}>{sessionData.short_questions.map((p, i) => <li key={i} style={{ marginBottom: '8px' }}>{p}</li>)}</ul></div>}
+      {sessionData.summary && <div style={cardStyle}><h3>📖 Master Summary</h3><p style={pStyle}>{sessionData.summary}</p></div>}
+      {sessionData.key_points && <div style={cardStyle}><h3>🔑 Core Principles</h3><ul style={ulStyle}>{sessionData.key_points.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.imp_topics && <div style={cardStyle}><h3>📌 Critical Sub-Topics</h3><ul style={ulStyle}>{sessionData.imp_topics.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.imp_questions && <div style={cardStyle}><h3>✍️ Analytical Exam Prep</h3><ul style={ulStyle}>{sessionData.imp_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.short_questions && <div style={cardStyle}><h3>🎯 Quick Recall Questions</h3><ul style={ulStyle}>{sessionData.short_questions.map((p, i) => <li key={i} style={{ marginBottom: '8px' }}>{p}</li>)}</ul></div>}
     </div>
   );
 
@@ -214,7 +218,7 @@ function App() {
 
       {currentStep === 'input' && !loading && (
         <div style={{ background: '#f8f9fa', padding: '30px', borderRadius: '10px', animation: 'fadeIn 0.5s' }}>
-          <button onClick={() => setCurrentStep('selection')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', marginBottom: '20px' }}>← Back</button>
+          <button onClick={() => setCurrentStep('selection')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', marginBottom: '20px', fontWeight: 'bold' }}>← Back</button>
 
           {inputType === 'text' && <textarea rows="6" style={{ width: '100%', padding: '15px', borderRadius: '8px', color: '#000', background: '#fff' }} placeholder="Paste your raw notes here..." onChange={(e) => setInputText(e.target.value)} />}
           {inputType === 'pdf' && <div style={{ padding: '40px', border: '2px dashed #ccc', textAlign: 'center', background: '#fff', color: '#000' }}><input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files[0])} /></div>}
@@ -224,7 +228,7 @@ function App() {
               <h3 style={{ marginTop: 0, color: '#007bff' }}>What specific concept do you need help with?</h3>
               <input type="text" style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px', color: '#000', background: '#fff' }} placeholder="e.g., Deadlock Prevention, Normalization..." onChange={(e) => setTopic(e.target.value)} />
 
-              <h3 style={{ marginTop: '10px', color: '#007bff' }}>Personalize (SEP Syllabus):</h3>
+              <h3 style={{ marginTop: '10px', color: '#007bff' }}>Syllabus Auditor (SEP Context):</h3>
               <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                 <select style={dropdownStyle} value={topicStream} onChange={(e) => setTopicStream(e.target.value)}>
                   <option value="BCA">BCA</option>
@@ -250,7 +254,7 @@ function App() {
           )}
 
           <div style={{ marginTop: '25px', padding: '20px', background: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
-            <h3 style={{ marginTop: 0, color: '#007bff' }}>What should the AI generate?</h3>
+            <h3 style={{ marginTop: 0, color: '#007bff' }}>Configure Master Class Output:</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {Object.keys(preferences).map(key => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '10px', background: preferences[key] ? '#eef2ff' : '#f8f9fa', borderRadius: '5px', border: `1px solid ${preferences[key] ? '#b6d4fe' : '#ddd'}`, color: '#333' }}>
@@ -269,9 +273,9 @@ function App() {
 
       {currentStep === 'results_only' && sessionData && !loading && (
         <div style={{ animation: 'fadeIn 0.5s' }}>
-          <h2 style={{ color: '#007bff' }}>Your Custom Materials</h2>
+          <h2 style={{ color: '#007bff' }}>Your Master Class Materials</h2>
           <RenderCustomOutputs />
-          <button onClick={() => { setCurrentStep('selection'); setInputType(null); }} style={{ padding: '15px 30px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'block', margin: '0 auto' }}>Start New Session</button>
+          <button onClick={() => { setCurrentStep('selection'); setInputType(null); }} style={{ padding: '15px 30px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'block', margin: '0 auto', fontWeight: 'bold' }}>Start New Session</button>
         </div>
       )}
 
@@ -364,7 +368,7 @@ function App() {
       {loading && (
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <h2 style={{ color: '#007bff' }}>🤖 {loadingMessage}</h2>
-          <p style={{ color: '#666' }}>Processing...</p>
+          <p style={{ color: '#666' }}>Processing on local AI cluster...</p>
         </div>
       )}
     </div>

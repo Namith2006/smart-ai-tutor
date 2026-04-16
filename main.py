@@ -53,7 +53,7 @@ def call_ollama(prompt):
             
     except Exception as e:
         print(f"Ollama Error: {str(e)}")
-        return {"error": "Inference Timeout", "is_in_syllabus": True, "content": "AI is busy or taking too long. Please try a more specific topic."}
+        return {"error": "Inference Timeout", "is_in_syllabus": True, "content": "AI is busy or taking too long. Please try a more specific concept."}
 
 # --- ENDPOINTS ---
 
@@ -73,21 +73,20 @@ async def extract_text(file: UploadFile = File(...)):
 
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
-    """Concept Specialist: Deep-dives into topics while rejecting broad subjects."""
+    """Strict Syllabus Auditor & Concept Specialist"""
     prompt = f"""
-    You are an expert academic tutor for {request.university}.
+    You are an expert academic syllabus auditor for {request.university}.
     
-    TASK: Evaluate if '{request.topic}' is a broad full SUBJECT (e.g., 'Operating Systems', 'DBMS') 
-    or a narrow, specific TOPIC/CONCEPT (e.g., 'Deadlock Prevention', 'Normalization').
+    TASK: Strictly evaluate the input '{request.topic}' for a {request.year} {request.stream} student under the State Educational Policy (SEP).
     
-    FILTRATION RULE:
-    1. If broad SUBJECT: Set "is_in_syllabus" to false.
-    2. If specific TOPIC: Set "is_in_syllabus" to true.
+    CRITICAL FILTRATION RULES - YOU MUST REJECT IMPERFECT INPUTS:
+    1. SYLLABUS CHECK: Is '{request.topic}' actually taught in the {request.year} of a {request.stream} degree? If it belongs to a completely different degree or year, set "is_in_syllabus" to false.
+    2. SUBJECT CHECK: Is '{request.topic}' a broad full SUBJECT (e.g., 'Operating Systems', 'Data Structures') instead of a narrow concept? If YES, set "is_in_syllabus" to false.
 
     Return ONLY valid JSON:
     {{
       "is_in_syllabus": true, 
-      "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}' including formal definitions, technical principles, and examples. If false, write: 'This appears to be a full subject. Please enter a specific concept (e.g., instead of {request.topic}, try a specific unit topic) for a deep-dive analysis.'"
+      "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}' including formal definitions, technical principles, and examples. If false, write a 2-sentence explanation of exactly why it was rejected (e.g., 'This topic is typically covered in a different stream/year under SEP guidelines.' OR 'This is a broad subject, please provide a specific concept.')."
     }}
     """
     return call_ollama(prompt)
@@ -115,7 +114,7 @@ async def generate_session(request: StudyRequest):
             imp_topics_count = 18    
             imp_questions_count = 15 
         
-        # Removed "Unit 1:" from the template placeholders
+        # Unit references completely removed
         json_template = {
             "summary": "...",
             "key_points": ["..."] * kp_count,
@@ -125,7 +124,6 @@ async def generate_session(request: StudyRequest):
             "quiz": [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "...", "topic_tag": "..."}] * q_count
         }
         
-        # Removed "Prefix each with its Unit" from instructions
         instructions = [
             f"- 'key_points': EXACTLY {kp_count} critical takeaways.",
             f"- 'imp_topics': EXACTLY {imp_topics_count} sub-topics. Do not just list the name; include a 2-sentence highly technical summary of WHY it is important.",
