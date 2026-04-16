@@ -89,12 +89,9 @@ async def generate_session(request: StudyRequest):
             instructions.append("- 'imp_questions': A list of 2 short-answer/subjective questions for exam prep.")
             json_template["imp_questions"] = ["...", "..."]
             
-        # --- NEW: 1-MARK & 2-MARK QUESTIONS ADDED HERE ---
-       # --- NEW: COMBINED SHORT QUESTIONS ---
         if "short_questions" in request.preferences:
             instructions.append("- 'short_questions': A combined list of five 1-mark objective questions AND three 2-mark descriptive questions. Prefix each question with '(1-Mark)' or '(2-Mark)'.")
             json_template["short_questions"] = ["(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(2-Mark) ...", "(2-Mark) ...", "(2-Mark) ..."]
-        # -------------------------------------------------
 
         if "quiz" in request.preferences:
             instructions.append("- 'quiz': A list of EXACTLY 5 multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag').")
@@ -116,16 +113,24 @@ async def generate_session(request: StudyRequest):
         """
     else:
         weak_topics = ", ".join(list(set(session_errors)))
+        
+        # --- FIXED: Passed content into the adaptive prompts so it generates real questions ---
         if not session_errors:
             prompt = f"""
-            The student got everything right! Return ONLY valid JSON: 
+            TASK: The student answered all previous questions correctly. Generate 1 highly advanced, difficult multiple-choice question based on the STUDENT NOTES provided below to test their ultimate mastery.
+            
+            <notes>
+            {request.content[:10000]}
+            </notes>
+
+            Return ONLY valid JSON matching this exact structure. Replace the placeholder text with your generated advanced question and options:
             {{
-              "remediation_notes": "Congratulations!", 
+              "remediation_notes": "Congratulations on getting a perfect score! Here is a final advanced challenge to test your absolute mastery.", 
               "targeted_quiz": [
                 {{
-                  "question": "ADVANCED: ...", 
-                  "options": ["Option 1 text", "Option 2 text", "Option 3 text", "Option 4 text"], 
-                  "correct_answer": "Exact text of the correct option", 
+                  "question": "ADVANCED: [Write a difficult question here]", 
+                  "options": ["[Option A]", "[Option B]", "[Option C]", "[Option D]"], 
+                  "correct_answer": "[Exact text of the correct option]", 
                   "topic_tag": "advanced"
                 }}
               ]
@@ -133,15 +138,21 @@ async def generate_session(request: StudyRequest):
             """
         else:
             prompt = f"""
-            Target weak topics: {weak_topics}. Using the student notes provided earlier.
-            Return ONLY valid JSON: 
+            TASK: The student struggled with the following topics: {weak_topics}. 
+            Generate a targeted review session based on the STUDENT NOTES provided below.
+            
+            <notes>
+            {request.content[:10000]}
+            </notes>
+
+            Return ONLY valid JSON matching this exact structure. Replace the placeholder text with your generated content:
             {{
-              "remediation_notes": "Deep-dive of {weak_topics}.", 
+              "remediation_notes": "[Write a 3-sentence deep-dive explanation specifically addressing the weak topics: {weak_topics}]", 
               "targeted_quiz": [
                 {{
-                  "question": "...", 
-                  "options": ["Option 1 text", "Option 2 text", "Option 3 text", "Option 4 text"], 
-                  "correct_answer": "Exact text of the correct option", 
+                  "question": "[Write a new question specifically about {weak_topics}]", 
+                  "options": ["[Option A]", "[Option B]", "[Option C]", "[Option D]"], 
+                  "correct_answer": "[Exact text of the correct option]", 
                   "topic_tag": "remedial"
                 }}
               ]
