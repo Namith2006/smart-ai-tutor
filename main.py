@@ -90,13 +90,10 @@ async def generate_session(request: StudyRequest):
             json_template["imp_questions"] = ["...", "..."]
             
         # --- NEW: 1-MARK & 2-MARK QUESTIONS ADDED HERE ---
-        if "one_mark_questions" in request.preferences:
-            instructions.append("- 'one_mark_questions': A list of 5 quick, 1-mark objective questions (e.g., fill-in-the-blanks or single-word answers).")
-            json_template["one_mark_questions"] = ["...", "...", "...", "...", "..."]
-            
-        if "two_mark_questions" in request.preferences:
-            instructions.append("- 'two_mark_questions': A list of 3 brief, 2-mark questions that require a 1-2 sentence descriptive answer.")
-            json_template["two_mark_questions"] = ["...", "...", "..."]
+       # --- NEW: COMBINED SHORT QUESTIONS ---
+        if "short_questions" in request.preferences:
+            instructions.append("- 'short_questions': A combined list of five 1-mark objective questions AND three 2-mark descriptive questions. Prefix each question with '(1-Mark)' or '(2-Mark)'.")
+            json_template["short_questions"] = ["(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(1-Mark) ...", "(2-Mark) ...", "(2-Mark) ...", "(2-Mark) ..."]
         # -------------------------------------------------
 
         if "quiz" in request.preferences:

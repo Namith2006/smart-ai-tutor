@@ -13,14 +13,13 @@ function App() {
   const [topicYear, setTopicYear] = useState('2nd Year')
   const [topicUni, setTopicUni] = useState('BCU')
   
-  // --- UPDATED: Added 1-mark and 2-mark questions to preferences ---
+  // --- MERGED: Short Questions Preference ---
   const [preferences, setPreferences] = useState({
     summary: true,
     key_points: false,
     imp_topics: false,
     imp_questions: false,
-    one_mark_questions: false, 
-    two_mark_questions: false,
+    short_questions: false, 
     quiz: true
   })
   
@@ -168,15 +167,17 @@ function App() {
     setLoading(false);
   }
 
-  // --- UPDATED: Added rendering UI for the new 1-mark and 2-mark questions ---
+  // --- ALIGNMENT FIX: Added ulStyle and pStyle to force left-alignment ---
+  const ulStyle = { textAlign: 'left', paddingLeft: '40px', lineHeight: '1.6', fontSize: '1.1rem' };
+  const pStyle = { textAlign: 'left', lineHeight: '1.6', fontSize: '1.1rem' };
+
   const RenderCustomOutputs = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
-      {sessionData.summary && <div style={cardStyle}><h3>📖 Summary</h3><p>{sessionData.summary}</p></div>}
-      {sessionData.key_points && <div style={cardStyle}><h3>🔑 Key Points</h3><ul>{sessionData.key_points.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.imp_topics && <div style={cardStyle}><h3>📌 Important Topics to Study</h3><ul>{sessionData.imp_topics.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.imp_questions && <div style={cardStyle}><h3>✍️ Exam Prep Questions</h3><ul>{sessionData.imp_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.one_mark_questions && <div style={cardStyle}><h3>🎯 1-Mark Questions</h3><ul>{sessionData.one_mark_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
-      {sessionData.two_mark_questions && <div style={cardStyle}><h3>📝 2-Mark Questions</h3><ul>{sessionData.two_mark_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.summary && <div style={cardStyle}><h3>📖 Summary</h3><p style={pStyle}>{sessionData.summary}</p></div>}
+      {sessionData.key_points && <div style={cardStyle}><h3>🔑 Key Points</h3><ul style={ulStyle}>{sessionData.key_points.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.imp_topics && <div style={cardStyle}><h3>📌 Important Topics to Study</h3><ul style={ulStyle}>{sessionData.imp_topics.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.imp_questions && <div style={cardStyle}><h3>✍️ Exam Prep Questions</h3><ul style={ulStyle}>{sessionData.imp_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.short_questions && <div style={cardStyle}><h3>🎯 1 & 2 Mark Questions</h3><ul style={ulStyle}>{sessionData.short_questions.map((p, i) => <li key={i} style={{marginBottom: '8px'}}>{p}</li>)}</ul></div>}
     </div>
   )
 
@@ -208,7 +209,7 @@ function App() {
               <input 
                 type="text" 
                 style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px' }} 
-                placeholder="e.g., Database Management Systems, Microeconomics..." 
+                placeholder="e.g., Database Management Systems, Ethical Hacking..." 
                 onChange={(e) => setTopic(e.target.value)} 
               />
               
