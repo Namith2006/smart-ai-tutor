@@ -44,18 +44,19 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
+# --- UPDATED: Syllabus Validation & UNIT-BASED MAXIMUM DATA Endpoint ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
     url = "http://localhost:11434/api/generate"
     
     prompt = f"""
     You are an expert academic advisor for {request.university}.
-    Evaluate if the topic '{request.topic}' is realistically part of the standard curriculum for a {request.year} student studying {request.stream}.
+    Evaluate if '{request.topic}' is realistically part of the standard curriculum for a {request.year} student studying {request.stream}.
     
     Return ONLY valid JSON matching this exact structure:
     {{
       "is_in_syllabus": true, // set to false if the topic strongly does not belong in this stream/year
-      "content": "If true, generate the most exhaustive, comprehensive, and highly detailed study guide possible. Include a deep-dive introduction, core technical principles, real-world industry applications, relevant formulas/code examples (if applicable), and advanced edge cases. Do not hold back on detail—provide as much academic data as possible tailored to their exact level. If false, write a polite 2-sentence explanation of why this topic is not in their syllabus."
+      "content": "If true, evaluate if '{request.topic}' is a broad full SUBJECT (like 'Database Management Systems' or 'Operating Systems') or a narrow TOPIC (like 'Normalization'). CRITICAL INSTRUCTION: If it is a full SUBJECT, you MUST break the study guide down strictly by syllabus UNITS (e.g., Unit 1: Introduction, Unit 2: Core Concepts, Unit 3: Advanced, etc.) providing exhaustive detail for each unit. If it is a narrow TOPIC, provide a deep-dive into just that specific concept without using units. If false, write a polite 2-sentence explanation of why this is not in their syllabus."
     }}
     """
     
@@ -72,7 +73,7 @@ async def generate_session(request: StudyRequest):
     if request.mode == "initial":
         session_errors = [] 
         
-        # --- NEW: PYTHON CALCULATOR FOR DYNAMIC SCALING ---
+        # --- PYTHON CALCULATOR FOR DYNAMIC SCALING ---
         text_length = len(request.content)
         if text_length < 1500: # Short notes
             q_count = 5
