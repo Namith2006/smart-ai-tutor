@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react' // <-- Added useEffect here
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 
 function App() {
@@ -36,7 +36,7 @@ function App() {
   const [adaptiveSelectedAnswer, setAdaptiveSelectedAnswer] = useState(null)
   const [adaptiveIsAnswerRevealed, setAdaptiveIsAnswerRevealed] = useState(false)
 
-  // --- NEW: DYNAMIC LOADING ILLUSION (Perceived Performance) ---
+  // --- DYNAMIC LOADING ILLUSION ---
   useEffect(() => {
     let interval;
     if (loading) {
@@ -53,12 +53,37 @@ function App() {
       interval = setInterval(() => {
         setLoadingMessage(messages[i % messages.length]);
         i++;
-      }, 3500); // Changes the text every 3.5 seconds
+      }, 3500);
     } else {
-      setLoadingMessage('Processing...'); // Reset when done
+      setLoadingMessage('Processing...');
     }
     return () => clearInterval(interval);
   }, [loading]);
+
+  // --- NEW: ROBUST ANSWER MATCHER ---
+  // This prevents the "everything is green" bug by smartly handling single-letter AI answers
+  const checkMatch = (option, correct) => {
+    if (!option || !correct) return false;
+    const optStr = String(option).trim().toLowerCase();
+    const corrStr = String(correct).trim().toLowerCase();
+
+    // 1. Exact match
+    if (optStr === corrStr) return true;
+
+    // 2. AI gave a short answer like "a", "b", "c", "d" or "a)", "b."
+    const cleanCorr = corrStr.replace(/[^a-z]/g, ''); 
+    if (cleanCorr.length === 1) {
+      // Check if the option starts with that letter (e.g. "a) white hat..." starts with "a")
+      return optStr.startsWith(cleanCorr);
+    }
+
+    // 3. Fallback: Longer string includes check (avoids matching single random letters)
+    if (corrStr.length > 3 && (optStr.includes(corrStr) || corrStr.includes(optStr))) {
+      return true;
+    }
+
+    return false;
+  };
 
   // --- 2. LOGIC HANDLERS ---
 
@@ -93,15 +118,12 @@ function App() {
           university: topicUni
         });
 
-        console.log("RAW BACKEND RESPONSE:", res.data); // Crucial for Hackathon Debugging
-
         if (res.data.error) {
            alert(`Backend Error: ${res.data.content || "The AI Engine is busy or timed out."}`);
            setLoading(false);
            return;
         }
 
-        // Alert covers both Wrong Syllabus (Cross-Stream) AND Broad Subjects
         if (res.data.is_in_syllabus === false) {
           alert(`🚫 SYLLABUS AUDIT ALERT!\n\n${res.data.content}`);
           setLoading(false);
@@ -111,9 +133,7 @@ function App() {
         finalRawText = res.data.content;
       }
 
-      // Safety check to prevent 422 error
       if (!finalRawText || typeof finalRawText !== 'string') {
-        console.error("FAILED TEXT DATA:", finalRawText);
         alert("The AI generated an invalid format. Please press F12 and check the Console for details.");
         setLoading(false);
         return;
@@ -139,7 +159,6 @@ function App() {
         setCurrentStep('results_only');
       }
     } catch (err) {
-      console.error("AXIOS ERROR:", err.response ? err.response.data : err.message);
       alert("Error communicating with backend. Is your Python server running?");
     }
     setLoading(false);
@@ -148,9 +167,9 @@ function App() {
   const handleAnswerSubmit = async (selected, correct, topicTag) => {
     setSelectedAnswer(selected);
     setIsAnswerRevealed(true);
-    const safeSelected = String(selected).trim().toLowerCase();
-    const safeCorrect = String(correct).trim().toLowerCase();
-    const isCorrect = safeSelected === safeCorrect || safeSelected.includes(safeCorrect) || safeCorrect.includes(safeSelected);
+    
+    // Using our new robust matcher
+    const isCorrect = checkMatch(selected, correct);
 
     if (!isCorrect) {
       setWeakTopics(prev => prev.includes(topicTag) ? prev : [...prev, topicTag]);
@@ -172,9 +191,9 @@ function App() {
   const handleAdaptiveAnswerSubmit = async (selected, correct, topicTag) => {
     setAdaptiveSelectedAnswer(selected);
     setAdaptiveIsAnswerRevealed(true);
-    const safeSelected = String(selected).trim().toLowerCase();
-    const safeCorrect = String(correct).trim().toLowerCase();
-    const isCorrect = safeSelected === safeCorrect || safeSelected.includes(safeCorrect) || safeCorrect.includes(safeSelected);
+    
+    // Using our new robust matcher
+    const isCorrect = checkMatch(selected, correct);
 
     if (isCorrect) {
       setWeakTopics(prev => prev.filter(t => t !== topicTag));
@@ -308,10 +327,11 @@ function App() {
           <div style={{ background: '#fff', padding: '20px', border: '1px solid #eee', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
             <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#111' }}>{sessionData.quiz[answeredCount].question}</p>
             {sessionData.quiz[answeredCount].options?.map((opt, i) => {
-              const safeCorrect = String(sessionData.quiz[answeredCount].correct_answer).trim().toLowerCase();
-              const safeOpt = String(opt).trim().toLowerCase();
-              const isCorrectOpt = safeOpt === safeCorrect || safeOpt.includes(safeCorrect) || safeCorrect.includes(safeOpt);
+              
+              // Apply the new checkMatch function here too
+              const isCorrectOpt = checkMatch(opt, sessionData.quiz[answeredCount].correct_answer);
               const isSelectedOpt = opt === selectedAnswer;
+              
               let btnBg = '#f8f9fa'; let btnBorder = '#ddd'; let icon = '';
               if (isAnswerRevealed) {
                 if (isCorrectOpt) { btnBg = '#d1e7dd'; btnBorder = '#198754'; icon = ' ✅'; }
@@ -387,7 +407,6 @@ function App() {
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '50px' }}>
-          {/* A cool spinner effect for the robot emoji */}
           <h2 style={{ color: '#007bff', animation: 'pulse 1.5s infinite' }}>🤖</h2>
           <h3 style={{ color: '#007bff' }}>{loadingMessage}</h3>
           <p style={{ color: '#666' }}>Powered by Local AI Inference</p>
