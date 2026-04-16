@@ -75,18 +75,18 @@ async def extract_text(file: UploadFile = File(...)):
 async def generate_from_topic(request: TopicRequest):
     """Strict Syllabus Auditor & Concept Specialist"""
     prompt = f"""
-    You are an expert academic syllabus auditor for {request.university}.
+    You are a RUTHLESS academic syllabus auditor for {request.university}.
     
-    TASK: Strictly evaluate the input '{request.topic}' for a {request.year} {request.stream} student under the State Educational Policy (SEP).
+    TASK: Strictly evaluate if '{request.topic}' belongs in the syllabus for a {request.year} student studying {request.stream} under standard State Educational Policy (SEP).
     
-    CRITICAL FILTRATION RULES - YOU MUST REJECT IMPERFECT INPUTS:
-    1. SYLLABUS CHECK: Is '{request.topic}' actually taught in the {request.year} of a {request.stream} degree? If it belongs to a completely different degree or year, set "is_in_syllabus" to false.
-    2. SUBJECT CHECK: Is '{request.topic}' a broad full SUBJECT (e.g., 'Operating Systems', 'Data Structures') instead of a narrow concept? If YES, set "is_in_syllabus" to false.
-
+    CRITICAL REJECTION RULES (NO EXCEPTIONS):
+    1. CROSS-STREAM VIOLATION: If the topic belongs to Science/Tech (e.g., 'Organic Chemistry', 'Machine Learning') but the stream is non-technical (e.g., 'BA', 'BCom'), YOU MUST REJECT IT. Do not assume they are taking an elective. Set "is_in_syllabus" to false.
+    2. BROAD SUBJECT VIOLATION: If the input is an entire course name (e.g., 'Operating Systems', 'History', 'Physics') rather than a specific sub-concept, YOU MUST REJECT IT. Set "is_in_syllabus" to false.
+    
     Return ONLY valid JSON:
     {{
       "is_in_syllabus": true, 
-      "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}' including formal definitions, technical principles, and examples. If false, write a 2-sentence explanation of exactly why it was rejected (e.g., 'This topic is typically covered in a different stream/year under SEP guidelines.' OR 'This is a broad subject, please provide a specific concept.')."
+      "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}'. If false, explain the exact reason for rejection (e.g., 'Organic Chemistry is a core Science topic and is not covered in a standard BA syllabus.' or 'This is a broad subject. Please provide a specific concept.')."
     }}
     """
     return call_ollama(prompt)

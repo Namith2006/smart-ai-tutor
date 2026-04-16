@@ -79,7 +79,7 @@ function App() {
            return;
         }
 
-        // --- UPDATED ALERT: Covers both Wrong Syllabus AND Broad Subjects ---
+        // Alert covers both Wrong Syllabus (Cross-Stream) AND Broad Subjects
         if (res.data.is_in_syllabus === false) {
           alert(`🚫 SYLLABUS AUDIT ALERT!\n\n${res.data.content}`);
           setLoading(false);
