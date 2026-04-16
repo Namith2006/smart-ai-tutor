@@ -99,9 +99,10 @@ function App() {
         setCurrentStep('results_only');
       }
 
-    } catch (err) { alert("Error communicating with backend."); }
-    setLoading(false);
-  }
+    } catch (err) { 
+      console.error("AXIOS ERROR:", err.response ? err.response.data : err.message);
+      alert("Error communicating with backend. Check the browser console (F12) for exact details!"); 
+    }
 
   const handleAnswerSubmit = async (selected, correct, topicTag) => {
     setSelectedAnswer(selected);
