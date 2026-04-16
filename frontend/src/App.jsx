@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react' // <-- Added useEffect here
 import axios from 'axios'
 
 function App() {
@@ -24,7 +24,7 @@ function App() {
   })
 
   const [loading, setLoading] = useState(false)
-  const [loadingMessage, setLoadingMessage] = useState('Processing...')
+  const [loadingMessage, setLoadingMessage] = useState('Initializing AI Core...')
   const [sessionData, setSessionData] = useState(null)
   const [answeredCount, setAnsweredCount] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState(null)
@@ -35,6 +35,30 @@ function App() {
   const [adaptiveAnsweredCount, setAdaptiveAnsweredCount] = useState(0)
   const [adaptiveSelectedAnswer, setAdaptiveSelectedAnswer] = useState(null)
   const [adaptiveIsAnswerRevealed, setAdaptiveIsAnswerRevealed] = useState(false)
+
+  // --- NEW: DYNAMIC LOADING ILLUSION (Perceived Performance) ---
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      const messages = [
+        "Initializing local Llama 3 cluster...",
+        "Cross-referencing SEP Syllabus parameters...",
+        "Parsing academic context embeddings...",
+        "Structuring Mastery-Level deep dive...",
+        "Generating analytical exam questions...",
+        "Synthesizing interactive quiz logic...",
+        "Finalizing Master Class data..."
+      ];
+      let i = 0;
+      interval = setInterval(() => {
+        setLoadingMessage(messages[i % messages.length]);
+        i++;
+      }, 3500); // Changes the text every 3.5 seconds
+    } else {
+      setLoadingMessage('Processing...'); // Reset when done
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   // --- 2. LOGIC HANDLERS ---
 
@@ -55,14 +79,12 @@ function App() {
         finalRawText = inputText;
       } else if (inputType === 'pdf') {
         if (!selectedFile) return alert("Please select a file.");
-        setLoadingMessage("Extracting text from PDF...");
         const formData = new FormData(); 
         formData.append('file', selectedFile);
         const res = await axios.post('http://127.0.0.1:8000/api/extract-text/', formData);
         finalRawText = res.data.text;
       } else if (inputType === 'topic') {
         if (!topic) return alert("Please enter a concept.");
-        setLoadingMessage("Auditing syllabus relevance (SEP)...");
 
         const res = await axios.post('http://127.0.0.1:8000/api/generate-from-topic/', {
           topic: topic,
@@ -98,7 +120,6 @@ function App() {
       }
 
       setInputText(finalRawText);
-      setLoadingMessage("Customizing your Master Class...");
 
       const sessionRes = await axios.post('http://127.0.0.1:8000/api/generate-session/', {
         content: finalRawText,
@@ -171,7 +192,6 @@ function App() {
 
   const startAdaptiveSession = async () => {
     setLoading(true);
-    setLoadingMessage("Generating personalized review loop...");
     try {
       const res = await axios.post('http://127.0.0.1:8000/api/generate-session/', { 
         content: inputText, 
@@ -367,8 +387,10 @@ function App() {
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '50px' }}>
-          <h2 style={{ color: '#007bff' }}>🤖 {loadingMessage}</h2>
-          <p style={{ color: '#666' }}>Processing on local AI cluster...</p>
+          {/* A cool spinner effect for the robot emoji */}
+          <h2 style={{ color: '#007bff', animation: 'pulse 1.5s infinite' }}>🤖</h2>
+          <h3 style={{ color: '#007bff' }}>{loadingMessage}</h3>
+          <p style={{ color: '#666' }}>Powered by Local AI Inference</p>
         </div>
       )}
     </div>
