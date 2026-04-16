@@ -76,7 +76,6 @@ async def generate_session(request: StudyRequest):
         json_template = {}
         instructions = []
         
-        # --- UPDATED: Dynamic Scaling Prompts ---
         if "summary" in request.preferences:
             instructions.append("- 'summary': A comprehensive summary. Scale the length dynamically (2 to 8 sentences) based on how much raw text was provided.")
             json_template["summary"] = "..."
@@ -94,8 +93,9 @@ async def generate_session(request: StudyRequest):
             instructions.append("- 'short_questions': A combined list of 1-mark and 2-mark questions. Scale dynamically (from 5 up to 15 questions) based on the input text volume. Prefix each with '(1-Mark)' or '(2-Mark)'.")
             json_template["short_questions"] = ["(1-Mark) ...", "(2-Mark) ..."]
 
+        # --- UPDATED: Strict "Minimum of 5" constraint for the quiz ---
         if "quiz" in request.preferences:
-            instructions.append("- 'quiz': A list of multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag'). Scale dynamically (from 5 up to 12 questions) depending on how much text was provided.")
+            instructions.append("- 'quiz': A list of multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag'). CRITICAL RULE: You MUST generate a MINIMUM of 5 questions, even for very short text. For longer text, scale up and generate between 10 and 15 questions.")
             json_template["quiz"] = [{"question": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}]
 
         prompt = f"""
