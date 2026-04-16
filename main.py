@@ -44,19 +44,19 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
-# --- UPDATED: STRICT SEP SYLLABUS GATEKEEPER ---
+# --- CORRECTED: STATE EDUCATIONAL POLICY GATEKEEPER ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
     url = "http://localhost:11434/api/generate"
     
     prompt = f"""
     You are an expert academic advisor for {request.university}.
-    CRITICAL CONSTRAINT: You must evaluate if '{request.topic}' is strictly part of the SEP (Skill Enhancement Program) syllabus for a {request.year} student studying {request.stream}. Do NOT accept general curriculum topics if they are not specifically within the SEP syllabus.
+    CRITICAL CONSTRAINT: You must evaluate if '{request.topic}' is strictly aligned with the State Educational Policy (SEP) syllabus for a {request.year} student studying {request.stream}. Do NOT accept general curriculum topics if they fall outside the specific guidelines of the State Educational Policy.
     
     Return ONLY valid JSON matching this exact structure:
     {{
       "is_in_syllabus": true, // set to false if the topic is NOT in the specific SEP syllabus, even if it is a valid topic for other subjects.
-      "content": "If true, determine if '{request.topic}' is a broad SUBJECT or a narrow TOPIC within the SEP syllabus. CRITICAL INSTRUCTION: If it is a full SUBJECT, you MUST organize the response by syllabus UNITS (e.g., Unit 1, Unit 2). For EVERY single Unit, you must first explicitly list the core TOPICS contained in that unit, and then provide a massive, exhaustive, textbook-level deep-dive explaining every single topic to its fullest capacity. Include technical definitions, core principles, and examples. Leave no sub-topic unexplained. If it is a narrow TOPIC, provide the same exhaustive deep-dive into just that concept. If false, write a polite 2-sentence explanation stating that this topic is outside the scope of the SEP syllabus."
+      "content": "If true, determine if '{request.topic}' is a broad SUBJECT or a narrow TOPIC within the SEP syllabus. CRITICAL INSTRUCTION: If it is a full SUBJECT, you MUST organize the response by syllabus UNITS (e.g., Unit 1, Unit 2). For EVERY single Unit, you must first explicitly list the core TOPICS contained in that unit, and then provide a massive, exhaustive, textbook-level deep-dive explaining every single topic to its fullest capacity. Include technical definitions, core principles, and examples. Leave no sub-topic unexplained. If it is a narrow TOPIC, provide the same exhaustive deep-dive into just that concept. If false, write a polite 2-sentence explanation stating that this topic is outside the scope of the State Educational Policy syllabus."
     }}
     """
     
