@@ -88,11 +88,21 @@ async def generate_session(request: StudyRequest):
         if "imp_questions" in request.preferences:
             instructions.append("- 'imp_questions': A list of 2 short-answer/subjective questions for exam prep.")
             json_template["imp_questions"] = ["...", "..."]
+            
+        # --- NEW: 1-MARK & 2-MARK QUESTIONS ADDED HERE ---
+        if "one_mark_questions" in request.preferences:
+            instructions.append("- 'one_mark_questions': A list of 5 quick, 1-mark objective questions (e.g., fill-in-the-blanks or single-word answers).")
+            json_template["one_mark_questions"] = ["...", "...", "...", "...", "..."]
+            
+        if "two_mark_questions" in request.preferences:
+            instructions.append("- 'two_mark_questions': A list of 3 brief, 2-mark questions that require a 1-2 sentence descriptive answer.")
+            json_template["two_mark_questions"] = ["...", "...", "..."]
+        # -------------------------------------------------
+
         if "quiz" in request.preferences:
             instructions.append("- 'quiz': A list of EXACTLY 5 multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag').")
             json_template["quiz"] = [{"question": "...", "options": ["Option 1 text", "Option 2 text", "Option 3 text", "Option 4 text"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}]
 
-        # FIXED: Increased content limit from [:2000] to [:10000] to handle the massive new data
         prompt = f"""
         TASK: You are an expert academic tutor. Analyze the STUDENT NOTES provided inside the <notes> tags below.
         

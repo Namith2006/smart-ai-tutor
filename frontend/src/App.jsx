@@ -13,11 +13,14 @@ function App() {
   const [topicYear, setTopicYear] = useState('2nd Year')
   const [topicUni, setTopicUni] = useState('BCU')
   
+  // --- UPDATED: Added 1-mark and 2-mark questions to preferences ---
   const [preferences, setPreferences] = useState({
     summary: true,
     key_points: false,
     imp_topics: false,
     imp_questions: false,
+    one_mark_questions: false, 
+    two_mark_questions: false,
     quiz: true
   })
   
@@ -67,11 +70,10 @@ function App() {
           university: topicUni
         });
 
-        // --- NEW: THE SYLLABUS GATEKEEPER ---
         if (res.data.is_in_syllabus === false) {
           alert(`🚫 OUT OF SYLLABUS!\n\n${res.data.content}`);
           setLoading(false);
-          return; // Stop the entire generation process!
+          return; 
         }
         
         finalRawText = res.data.content;
@@ -166,12 +168,15 @@ function App() {
     setLoading(false);
   }
 
+  // --- UPDATED: Added rendering UI for the new 1-mark and 2-mark questions ---
   const RenderCustomOutputs = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
       {sessionData.summary && <div style={cardStyle}><h3>📖 Summary</h3><p>{sessionData.summary}</p></div>}
       {sessionData.key_points && <div style={cardStyle}><h3>🔑 Key Points</h3><ul>{sessionData.key_points.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
       {sessionData.imp_topics && <div style={cardStyle}><h3>📌 Important Topics to Study</h3><ul>{sessionData.imp_topics.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
       {sessionData.imp_questions && <div style={cardStyle}><h3>✍️ Exam Prep Questions</h3><ul>{sessionData.imp_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.one_mark_questions && <div style={cardStyle}><h3>🎯 1-Mark Questions</h3><ul>{sessionData.one_mark_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
+      {sessionData.two_mark_questions && <div style={cardStyle}><h3>📝 2-Mark Questions</h3><ul>{sessionData.two_mark_questions.map((p, i) => <li key={i}>{p}</li>)}</ul></div>}
     </div>
   )
 
@@ -189,7 +194,7 @@ function App() {
           </div>
         </div>
       )}
-
+      
       {currentStep === 'input' && !loading && (
         <div style={{ background: '#f8f9fa', padding: '30px', borderRadius: '10px', animation: 'fadeIn 0.5s' }}>
           <button onClick={() => setCurrentStep('selection')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', marginBottom: '20px' }}>← Back</button>
@@ -240,7 +245,7 @@ function App() {
               {Object.keys(preferences).map(key => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '10px', background: preferences[key] ? '#eef2ff' : '#f8f9fa', borderRadius: '5px', border: `1px solid ${preferences[key] ? '#b6d4fe' : '#ddd'}` }}>
                   <input type="checkbox" checked={preferences[key]} onChange={() => handleToggle(key)} style={{ marginRight: '10px' }}/>
-                  {key.replace('_', ' ').toUpperCase()}
+                  {key.replace(/_/g, ' ').toUpperCase()}
                 </label>
               ))}
             </div>
