@@ -2,7 +2,7 @@ import { useState } from 'react'
 import axios from 'axios'
 
 function App() {
-  // --- STATE MANAGEMENT ---
+  // --- 1. STATE MANAGEMENT ---
   const [currentStep, setCurrentStep] = useState('selection')
   const [inputType, setInputType] = useState(null)
   const [inputText, setInputText] = useState('')
@@ -32,7 +32,7 @@ function App() {
   const [adaptiveSelectedAnswer, setAdaptiveSelectedAnswer] = useState(null)
   const [adaptiveIsAnswerRevealed, setAdaptiveIsAnswerRevealed] = useState(false)
 
-  // --- HANDLERS ---
+  // --- 2. LOGIC HANDLERS ---
 
   const handleToggle = (key) => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }))
@@ -75,7 +75,7 @@ function App() {
         finalRawText = res.data.content;
       }
 
-      // Safety check to prevent 422 errors
+      // Safety check to prevent 422 error
       if (!finalRawText || typeof finalRawText !== 'string') {
         throw new Error("AI failed to generate content.");
       }
@@ -170,7 +170,7 @@ function App() {
     setLoading(false);
   };
 
-  // --- UI HELPER COMPONENTS ---
+  // --- 3. UI STYLES & HELPERS ---
   const ulStyle = { textAlign: 'left', paddingLeft: '40px', lineHeight: '1.6', fontSize: '1.1rem', color: '#333' };
   const pStyle = { textAlign: 'left', lineHeight: '1.6', fontSize: '1.1rem', color: '#333' };
 
@@ -186,11 +186,11 @@ function App() {
 
   return (
     <div style={{ padding: '40px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif', color: '#333' }}>
-      <h1 style={{ textAlign: 'center', color: '#007bff' }}>🎓 Smart AI Tutor</h1>
+      <h1 style={{ textAlign: 'center', color: '#007bff', fontWeight: 'bold' }}>🎓 Smart AI Tutor</h1>
 
       {currentStep === 'selection' && (
         <div style={{ textAlign: 'center', animation: 'fadeIn 0.5s' }}>
-          <h2>What do you want to learn today?</h2>
+          <h2 style={{ color: '#007bff' }}>What do you want to learn today?</h2>
           <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '30px' }}>
             <button onClick={() => { setInputType('text'); setCurrentStep('input'); }} style={btnStyle}>📝 Paste Notes</button>
             <button onClick={() => { setInputType('pdf'); setCurrentStep('input'); }} style={btnStyle}>📄 Upload PDF</button>
@@ -203,15 +203,15 @@ function App() {
         <div style={{ background: '#f8f9fa', padding: '30px', borderRadius: '10px', animation: 'fadeIn 0.5s' }}>
           <button onClick={() => setCurrentStep('selection')} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', marginBottom: '20px' }}>← Back</button>
 
-          {inputType === 'text' && <textarea rows="6" style={{ width: '100%', padding: '15px', borderRadius: '8px', color: '#333' }} placeholder="Paste your raw notes here..." onChange={(e) => setInputText(e.target.value)} />}
+          {inputType === 'text' && <textarea rows="6" style={{ width: '100%', padding: '15px', borderRadius: '8px', color: '#000', background: '#fff' }} placeholder="Paste your raw notes here..." onChange={(e) => setInputText(e.target.value)} />}
           {inputType === 'pdf' && <div style={{ padding: '40px', border: '2px dashed #ccc', textAlign: 'center', background: '#fff' }}><input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files[0])} /></div>}
 
           {inputType === 'topic' && (
             <div style={{ animation: 'fadeIn 0.5s' }}>
-              <h3 style={{ marginTop: 0 }}>What topic do you need help with?</h3>
-              <input type="text" style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px', color: '#333' }} placeholder="e.g., Database Management Systems..." onChange={(e) => setTopic(e.target.value)} />
+              <h3 style={{ marginTop: 0, color: '#007bff' }}>What topic do you need help with?</h3>
+              <input type="text" style={{ width: '100%', padding: '15px', fontSize: '1.2rem', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '15px', color: '#000', background: '#fff' }} placeholder="e.g., Database Management Systems..." onChange={(e) => setTopic(e.target.value)} />
 
-              <h3 style={{ marginTop: '10px' }}>Personalize (SEP Syllabus):</h3>
+              <h3 style={{ marginTop: '10px', color: '#007bff' }}>Personalize (SEP Syllabus):</h3>
               <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
                 <select style={dropdownStyle} value={topicStream} onChange={(e) => setTopicStream(e.target.value)}>
                   <option value="BCA">BCA</option>
@@ -237,7 +237,7 @@ function App() {
           )}
 
           <div style={{ marginTop: '25px', padding: '20px', background: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
-            <h3 style={{ marginTop: 0 }}>What should the AI generate?</h3>
+            <h3 style={{ marginTop: 0, color: '#007bff' }}>What should the AI generate?</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {Object.keys(preferences).map(key => (
                 <label key={key} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '10px', background: preferences[key] ? '#eef2ff' : '#f8f9fa', borderRadius: '5px', border: `1px solid ${preferences[key] ? '#b6d4fe' : '#ddd'}`, color: '#333' }}>
@@ -256,7 +256,7 @@ function App() {
 
       {currentStep === 'results_only' && sessionData && !loading && (
         <div style={{ animation: 'fadeIn 0.5s' }}>
-          <h2>Your Custom Materials</h2>
+          <h2 style={{ color: '#007bff' }}>Your Custom Materials</h2>
           <RenderCustomOutputs />
           <button onClick={() => { setCurrentStep('selection'); setInputType(null); }} style={{ padding: '15px 30px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'block', margin: '0 auto' }}>Start New Session</button>
         </div>
@@ -265,7 +265,7 @@ function App() {
       {currentStep === 'quiz' && sessionData && !loading && (
         <div style={{ animation: 'fadeIn 0.5s' }}>
           <RenderCustomOutputs />
-          <h3 style={{ borderTop: '2px solid #444', paddingTop: '20px', color: '#333' }}>
+          <h3 style={{ borderTop: '2px solid #444', paddingTop: '20px', color: '#007bff' }}>
             Interactive Quiz (Question {answeredCount + 1} of {sessionData.quiz.length})
           </h3>
           <div style={{ background: '#fff', padding: '20px', border: '1px solid #eee', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
@@ -324,7 +324,7 @@ function App() {
           </div>
           {sessionData.targeted_quiz && sessionData.targeted_quiz.length > 0 && adaptiveAnsweredCount < sessionData.targeted_quiz.length ? (
             <div style={{ background: '#fff', padding: '20px', border: '1px solid #eee', borderRadius: '10px' }}>
-              <h3>Mastery Check ({adaptiveAnsweredCount + 1} of {sessionData.targeted_quiz.length})</h3>
+              <h3 style={{ color: '#007bff' }}>Mastery Check ({adaptiveAnsweredCount + 1} of {sessionData.targeted_quiz.length})</h3>
               <p style={{ fontWeight: 'bold', color: '#111' }}>{sessionData.targeted_quiz[adaptiveAnsweredCount].question}</p>
               {sessionData.targeted_quiz[adaptiveAnsweredCount].options?.map((opt, i) => {
                 const isSelected = opt === adaptiveSelectedAnswer;
@@ -350,7 +350,7 @@ function App() {
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '50px' }}>
-          <h2>🤖 {loadingMessage}</h2>
+          <h2 style={{ color: '#007bff' }}>🤖 {loadingMessage}</h2>
           <p style={{ color: '#666' }}>Processing...</p>
         </div>
       )}
@@ -358,8 +358,9 @@ function App() {
   );
 }
 
+// --- 4. STYLES ---
 const btnStyle = { flex: 1, padding: '25px', fontSize: '1.1rem', fontWeight: 'bold', background: '#fff', border: '2px solid #007bff', color: '#007bff', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s' };
 const cardStyle = { background: '#eef2ff', padding: '20px', borderRadius: '10px' };
-const dropdownStyle = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', background: '#fff', color: '#333', cursor: 'pointer' };
+const dropdownStyle = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', background: '#fff', color: '#000', cursor: 'pointer' };
 
 export default App;
