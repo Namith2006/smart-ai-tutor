@@ -44,7 +44,6 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
-# --- Syllabus Validation & MAXIMUM DATA Endpoint ---
 @app.post("/api/generate-from-topic/")
 async def generate_from_topic(request: TopicRequest):
     url = "http://localhost:11434/api/generate"
@@ -73,30 +72,46 @@ async def generate_session(request: StudyRequest):
     if request.mode == "initial":
         session_errors = [] 
         
+        # --- NEW: PYTHON CALCULATOR FOR DYNAMIC SCALING ---
+        text_length = len(request.content)
+        if text_length < 1500: # Short notes
+            q_count = 5
+            kp_count = 3
+        elif text_length < 5000: # Medium notes / pages
+            q_count = 8
+            kp_count = 6
+        else: # Massive textbook data
+            q_count = 12
+            kp_count = 10
+        # --------------------------------------------------
+
         json_template = {}
         instructions = []
         
         if "summary" in request.preferences:
-            instructions.append("- 'summary': A comprehensive summary. Scale the length dynamically (2 to 8 sentences) based on how much raw text was provided.")
+            instructions.append("- 'summary': A comprehensive overview of the text.")
             json_template["summary"] = "..."
+            
         if "key_points" in request.preferences:
-            instructions.append("- 'key_points': A list of important takeaways. Scale the number of points dynamically (from 3 up to 15) based on the length and depth of the input text.")
-            json_template["key_points"] = ["...", "..."]
+            instructions.append(f"- 'key_points': A list of EXACTLY {kp_count} important takeaways.")
+            json_template["key_points"] = ["..."] * kp_count # Forces LLM to fill exact slots
+            
         if "imp_topics" in request.preferences:
-            instructions.append("- 'imp_topics': A list of highly important sub-topics the student should study. Scale the amount dynamically (from 3 up to 10) based on input size.")
-            json_template["imp_topics"] = ["...", "..."]
+            instructions.append(f"- 'imp_topics': A list of EXACTLY {kp_count} highly important sub-topics.")
+            json_template["imp_topics"] = ["..."] * kp_count
+            
         if "imp_questions" in request.preferences:
-            instructions.append("- 'imp_questions': A list of short-answer/subjective questions for exam prep. Scale dynamically (from 2 up to 8 questions).")
-            json_template["imp_questions"] = ["...", "..."]
+            instructions.append(f"- 'imp_questions': A list of EXACTLY {q_count // 2} subjective questions for exam prep.")
+            json_template["imp_questions"] = ["..."] * (q_count // 2)
             
         if "short_questions" in request.preferences:
-            instructions.append("- 'short_questions': A combined list of 1-mark and 2-mark questions. Scale dynamically (from 5 up to 15 questions) based on the input text volume. Prefix each with '(1-Mark)' or '(2-Mark)'.")
-            json_template["short_questions"] = ["(1-Mark) ...", "(2-Mark) ..."]
+            instructions.append(f"- 'short_questions': A combined list of EXACTLY {q_count} short objective questions. Prefix each with '(1-Mark)' or '(2-Mark)'.")
+            json_template["short_questions"] = ["..."] * q_count
 
-        # --- UPDATED: Strict "Minimum of 5" constraint for the quiz ---
         if "quiz" in request.preferences:
-            instructions.append("- 'quiz': A list of multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag'). CRITICAL RULE: You MUST generate a MINIMUM of 5 questions, even for very short text. For longer text, scale up and generate between 10 and 15 questions.")
-            json_template["quiz"] = [{"question": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}]
+            instructions.append(f"- 'quiz': A list of EXACTLY {q_count} multiple-choice questions ('question', 'options', 'correct_answer', 'topic_tag').")
+            quiz_obj = {"question": "...", "options": ["Option A", "Option B", "Option C", "Option D"], "correct_answer": "Exact text of the correct option", "topic_tag": "..."}
+            json_template["quiz"] = [quiz_obj] * q_count # Duplicates the object perfectly!
 
         prompt = f"""
         TASK: You are an expert academic tutor. Analyze the STUDENT NOTES provided inside the <notes> tags below.
@@ -108,8 +123,8 @@ async def generate_session(request: StudyRequest):
         Based EXCLUSIVELY on the STUDENT NOTES inside the tags above, fulfill these requirements:
         {chr(10).join(instructions)}
         
-        CRITICAL INSTRUCTION: Do not summarize or mention these instructions. Summarize ONLY the actual educational content inside the <notes> tags.
-        Return ONLY valid JSON matching this exact structure. Ensure correct_answer contains the exact string of the correct option:
+        CRITICAL INSTRUCTION: You MUST fill out every single item array in the JSON template below. Do not skip any slots.
+        Return ONLY valid JSON matching this exact structure:
         {json.dumps(json_template)}
         """
     else:
