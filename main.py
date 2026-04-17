@@ -150,14 +150,35 @@ async def generate_session(request: StudyRequest):
         return call_ollama(prompt)
 
     else:
-        # Adaptive Remediation Logic
+        # --- STRICT ADAPTIVE TEMPLATE ---
+        adaptive_template = {
+            "remediation_notes": "Provide a highly detailed 2-paragraph explanation specifically addressing the student's weak topics.",
+            "targeted_quiz": [
+                {
+                    "question": "...", 
+                    "options": ["A", "B", "C", "D"], 
+                    "correct_answer": "...", 
+                    "topic_tag": "..."
+                }
+            ] * 3 # Generate 3 new targeted questions
+        }
+        
         weak_topics = ", ".join(list(set(session_errors)))
         if not session_errors:
-            prompt = f"TASK: Perfect score! Generate 1 advanced question from: {request.content[:5000]}. Return JSON with 'remediation_notes' and 'targeted_quiz'."
+            prompt = f"""
+            TASK: The student got a perfect score! Give them an advanced challenge based on these notes: <notes>{request.content[:5000]}</notes>. 
+            Return ONLY valid JSON matching this template: {json.dumps(adaptive_template)}
+            RULE: The 'correct_answer' MUST be the exact full string of the correct option. Do NOT just write 'A' or 'B'.
+            """
         else:
-            prompt = f"TASK: Review weak topics: {weak_topics}. Use notes: {request.content[:5000]}. Return JSON with 'remediation_notes' and 'targeted_quiz'."
+            prompt = f"""
+            TASK: The student failed questions related to these specific topics: {weak_topics}. 
+            Using these notes: <notes>{request.content[:5000]}</notes>
+            Return ONLY valid JSON matching this template: {json.dumps(adaptive_template)}
+            RULE: The 'correct_answer' MUST be the exact full string of the correct option. Do NOT just write 'A' or 'B'.
+            """
             
-    return call_ollama(prompt)
+        return call_ollama(prompt)
 
 @app.post("/api/track-error/")
 async def track_error(request: FeedbackRequest):

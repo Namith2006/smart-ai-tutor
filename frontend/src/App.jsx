@@ -78,7 +78,7 @@ function App() {
     }
 
     // 3. Fallback: Longer string includes check (avoids matching single random letters)
-    if (corrStr.length > 3 && (optStr.includes(corrStr) || corrStr.includes(optStr))) {
+    if (corrStr.length > 5 && (optStr.includes(corrStr) || corrStr.includes(optStr))) {
       return true;
     }
 
@@ -397,9 +397,24 @@ function App() {
               {adaptiveIsAnswerRevealed && <button onClick={handleNextAdaptiveQuestion} style={{ width: '100%', padding: '15px', background: '#007bff', color: 'white', border: 'none', borderRadius: '8px', marginTop: '15px', cursor: 'pointer', fontWeight: 'bold' }}>Next ➔</button>}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px', background: '#d1e7dd', borderRadius: '12px' }}>
-              <h2 style={{ color: '#0f5132' }}>🏆 Total Mastery Achieved!</h2>
-              <button onClick={() => window.location.reload()} style={{ padding: '15px 40px', background: '#198754', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Finish & Exit ➔</button>
+            <div style={{ textAlign: 'center', padding: '40px', background: weakTopics.length > 0 ? '#fff3cd' : '#d1e7dd', borderRadius: '12px' }}>
+              {weakTopics.length > 0 ? (
+                <>
+                  <h2 style={{ color: '#856404' }}>⚠️ More Practice Needed</h2>
+                  <p style={{ color: '#856404' }}>You are still struggling with: <strong>{weakTopics.join(", ")}</strong></p>
+                  <button onClick={startAdaptiveSession} style={{ padding: '15px 40px', background: '#ffc107', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '15px' }}>
+                    Generate Next Review Loop ➔
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 style={{ color: '#0f5132' }}>🏆 Total Mastery Achieved!</h2>
+                  <p style={{ color: '#0f5132' }}>You have successfully cleared all your weak spots.</p>
+                  <button onClick={() => window.location.reload()} style={{ padding: '15px 40px', background: '#198754', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '15px' }}>
+                    Finish & Exit ➔
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -419,6 +434,6 @@ function App() {
 // --- 4. STYLES ---
 const btnStyle = { flex: 1, padding: '25px', fontSize: '1.1rem', fontWeight: 'bold', background: '#fff', border: '2px solid #007bff', color: '#007bff', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s' };
 const cardStyle = { background: '#eef2ff', padding: '20px', borderRadius: '10px' };
-const dropdownStyle = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', background: '#fff', color: '#000', cursor: 'pointer' };
+const dropdownStyle = { flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', background: '#fff', color: '#000', cursor: 'pointer' }; 
 
 export default App;
