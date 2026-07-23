@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import PyPDF2, io, requests, json, re
+import PyPDF2, io, requests, json, re, os  # <-- Added 'os' here
 
 app = FastAPI()
 
@@ -33,17 +33,34 @@ class TopicRequest(BaseModel):
 
 # --- HELPERS ---
 
-def call_ollama(prompt):
-    """Sends prompt to Llama 3 with JSON scrubbing and timeout protection."""
-    url = "http://localhost:11434/api/generate"
+def call_groq(prompt):
+    """Sends prompt to Groq Cloud for instant Llama 3 inference."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    
+    # Safely fetches the API key from your Render environment variables
+    api_key = os.environ.get("GROQ_API_KEY") 
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "llama3-8b-8192", # The exact same 8B model, just hosted on Groq!
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.2
+    }
+    
     try:
-        # 120s timeout ensures the GPU has enough time for deep-dives
-        response = requests.post(
-            url, 
-            json={"model": "llama3", "prompt": prompt, "stream": False, "format": "json"}, 
-            timeout=120
-        )
-        raw_response = response.json().get("response", "")
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        # Safety check in case the API key is missing or invalid
+        if response.status_code != 200:
+            print(f"Groq API Error: {response.text}")
+            return {"error": "API Error", "is_in_syllabus": True, "content": "Failed to connect to Groq. Check your API Key in Render."}
+            
+        raw_response = response.json()["choices"][0]["message"]["content"]
         
         # THE JSON SCRUBBER: Extracts only the valid JSON block
         match = re.search(r'(\{.*\})', raw_response, re.DOTALL)
@@ -52,8 +69,8 @@ def call_ollama(prompt):
         return json.loads(raw_response)
             
     except Exception as e:
-        print(f"Ollama Error: {str(e)}")
-        return {"error": "Inference Timeout", "is_in_syllabus": True, "content": "AI is busy or taking too long. Please try a more specific concept."}
+        print(f"Groq Error: {str(e)}")
+        return {"error": "Cloud Timeout", "is_in_syllabus": True, "content": "AI is busy or taking too long. Please try a more specific concept."}
 
 # --- ENDPOINTS ---
 
@@ -89,7 +106,7 @@ async def generate_from_topic(request: TopicRequest):
       "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}'. If false, explain the exact reason for rejection (e.g., 'Organic Chemistry is a core Science topic and is not covered in a standard BA syllabus.' or 'This is a broad subject. Please provide a specific concept.')."
     }}
     """
-    return call_ollama(prompt)
+    return call_groq(prompt)
 
 @app.post("/api/generate-session/")
 async def generate_session(request: StudyRequest):
@@ -101,7 +118,6 @@ async def generate_session(request: StudyRequest):
         text_length = len(request.content)
         
         # --- DYNAMIC SCALING LOGIC ---
-        # Dialed down slightly to maximize speed for the Hackathon Demo
         if text_length < 1500: 
             q_count, kp_count, imp_topics_count, imp_questions_count = 5, 3, 6, 5
         elif text_length < 5000: 
@@ -110,7 +126,6 @@ async def generate_session(request: StudyRequest):
             q_count, kp_count, imp_topics_count, imp_questions_count = 10, 8, 12, 10
         
         # --- NEW: DYNAMIC PROMPT BUILDER ---
-        # This is the magic! It ONLY adds keys to the JSON if you checked the box in React.
         json_template = {}
         instructions = []
 
@@ -136,7 +151,6 @@ async def generate_session(request: StudyRequest):
 
         if "quiz" in request.preferences:
             json_template["quiz"] = [{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": "...", "topic_tag": "..."}] * q_count
-            # This fixes the green/red grading bug by forcing Llama 3 to write the full answer:
             instructions.append(f"- 'quiz': EXACTLY {q_count} MCQs based exclusively on the provided text. The 'correct_answer' field MUST be the exact, full string of the correct option. Do NOT just write 'A' or 'B'.")
 
         prompt = f"""
@@ -147,7 +161,7 @@ async def generate_session(request: StudyRequest):
         Rules: {chr(10).join(instructions)}
         """
         
-        return call_ollama(prompt)
+        return call_groq(prompt)
 
     else:
         # --- STRICT ADAPTIVE TEMPLATE ---
@@ -160,7 +174,7 @@ async def generate_session(request: StudyRequest):
                     "correct_answer": "...", 
                     "topic_tag": "..."
                 }
-            ] * 3 # Generate 3 new targeted questions
+            ] * 3 
         }
         
         weak_topics = ", ".join(list(set(session_errors)))
@@ -178,7 +192,7 @@ async def generate_session(request: StudyRequest):
             RULE: The 'correct_answer' MUST be the exact full string of the correct option. Do NOT just write 'A' or 'B'.
             """
             
-        return call_ollama(prompt)
+        return call_groq(prompt)
 
 @app.post("/api/track-error/")
 async def track_error(request: FeedbackRequest):
