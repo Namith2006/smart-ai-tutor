@@ -41,7 +41,7 @@ function App() {
     let interval;
     if (loading) {
       const messages = [
-        "Initializing local Llama 3 cluster...",
+        "Initializing Groq Cloud Llama 3 cluster...",
         "Cross-referencing SEP Syllabus parameters...",
         "Parsing academic context embeddings...",
         "Structuring Mastery-Level deep dive...",
@@ -106,12 +106,12 @@ function App() {
         if (!selectedFile) return alert("Please select a file.");
         const formData = new FormData(); 
         formData.append('file', selectedFile);
-        const res = await axios.post('http://127.0.0.1:8000/api/extract-text/', formData);
+        const res = await axios.post('https://smart-ai-tutor-n1ah.onrender.com/api/extract-text/', formData);
         finalRawText = res.data.text;
       } else if (inputType === 'topic') {
         if (!topic) return alert("Please enter a concept.");
 
-        const res = await axios.post('http://127.0.0.1:8000/api/generate-from-topic/', {
+        const res = await axios.post('https://smart-ai-tutor-n1ah.onrender.com/api/generate-from-topic/', {
           topic: topic,
           stream: topicStream,
           year: topicYear,
@@ -141,7 +141,7 @@ function App() {
 
       setInputText(finalRawText);
 
-      const sessionRes = await axios.post('http://127.0.0.1:8000/api/generate-session/', {
+      const sessionRes = await axios.post('https://smart-ai-tutor-n1ah.onrender.com/api/generate-session/', {
         content: finalRawText,
         mode: 'initial',
         preferences: selectedPrefs
@@ -174,7 +174,7 @@ function App() {
     if (!isCorrect) {
       setWeakTopics(prev => prev.includes(topicTag) ? prev : [...prev, topicTag]);
     }
-    await axios.post('http://127.0.0.1:8000/api/track-error/', { concept: topicTag, is_correct: isCorrect });
+    await axios.post('https://smart-ai-tutor-n1ah.onrender.com/api/track-error/', { concept: topicTag, is_correct: isCorrect });
   };
 
   const handleNextQuestion = () => {
@@ -200,7 +200,7 @@ function App() {
     } else {
       setWeakTopics(prev => prev.includes(topicTag) ? prev : [...prev, topicTag]);
     }
-    await axios.post('http://127.0.0.1:8000/api/track-error/', { concept: topicTag, is_correct: isCorrect });
+    await axios.post('https://smart-ai-tutor-n1ah.onrender.com/api/track-error/', { concept: topicTag, is_correct: isCorrect });
   };
 
   const handleNextAdaptiveQuestion = () => {
@@ -212,7 +212,7 @@ function App() {
   const startAdaptiveSession = async () => {
     setLoading(true);
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/generate-session/', { 
+      const res = await axios.post('https://smart-ai-tutor-n1ah.onrender.com/api/generate-session/', { 
         content: inputText, 
         mode: 'adaptive', 
         preferences: [] 
@@ -424,7 +424,7 @@ function App() {
         <div style={{ textAlign: 'center', padding: '50px' }}>
           <h2 style={{ color: '#007bff', animation: 'pulse 1.5s infinite' }}>🤖</h2>
           <h3 style={{ color: '#007bff' }}>{loadingMessage}</h3>
-          <p style={{ color: '#666' }}>Powered by Local AI Inference</p>
+          <p style={{ color: '#666' }}>Powered by Cloud AI Inference</p>
         </div>
       )}
     </div>
