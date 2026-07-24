@@ -33,19 +33,34 @@ class TopicRequest(BaseModel):
 
 # --- HELPERS ---
 
-def call_ollama(prompt):
-    """Sends prompt to Llama 3 with JSON scrubbing and timeout protection."""
-    url = "http://localhost:11434/api/generate"
+def call_groq(prompt):
+    """Sends prompt to Groq Cloud for instant Llama 3 inference."""
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    
+    # Safely fetches the API key from your Render environment variables
+    api_key = os.environ.get("GROQ_API_KEY") 
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "llama3-8b-8192", 
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.2
+    }
+    
     try:
-        # 120s timeout ensures the GPU has enough time for deep-dives
-        response = requests.post(
-            url, 
-            json={"model": "llama3", "prompt": prompt, "stream": False, "format": "json"}, 
-            timeout=120
-        )
-        raw_response = response.json().get("response", "")
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
         
-        # THE JSON SCRUBBER: Extracts only the valid JSON block
+        if response.status_code != 200:
+            print(f"Groq API Error: {response.text}")
+            return {"error": "API Error", "is_in_syllabus": True, "content": "Failed to connect to Groq. Check your API Key in Render."}
+            
+        raw_response = response.json()["choices"][0]["message"]["content"]
+        
         match = re.search(r'(\{.*\})', raw_response, re.DOTALL)
         if match:
             return json.loads(match.group(1))
