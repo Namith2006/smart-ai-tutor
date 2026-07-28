@@ -1,7 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import PyPDF2, io, requests, json, re, os  # <-- Added 'os' here
+from functools import lru_cache # <-- ADDED: Memory Caching tool
+import PyPDF2, io, requests, json, re, os  
 
 app = FastAPI()
 
@@ -33,7 +34,11 @@ class TopicRequest(BaseModel):
 
 # --- HELPERS ---
 
-def call_groq(prompt):
+# --- ADDED: LRU Cache saves the last 50 prompts in memory ---
+# If a student asks for the exact same syllabus audit or prompt again,
+# this intercepts it and responds in 0.001s without calling Groq!
+@lru_cache(maxsize=50)
+def call_groq(prompt: str):
     """Sends prompt to Groq Cloud for instant Llama 3 inference."""
     url = "https://api.groq.com/openai/v1/chat/completions"
     
@@ -49,7 +54,8 @@ def call_groq(prompt):
         "model": "llama-3.1-8b-instant", 
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
-        "temperature": 0.2
+        "temperature": 0.2,
+        "max_tokens": 1500  # <-- ADDED: Token Clamp to force faster API completion
     }
     
     try:
@@ -104,6 +110,7 @@ async def generate_from_topic(request: TopicRequest):
       "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}'. If false, explain the exact reason for rejection (e.g., 'Organic Chemistry is a core Science topic and is not covered in a standard BA syllabus.' or 'This is a broad subject. Please provide a specific concept.')."
     }}
     """
+    # Because call_groq is now cached, identical audits will resolve instantly!
     return call_groq(prompt)
 
 @app.post("/api/generate-session/")
