@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from functools import lru_cache # <-- ADDED: Memory Caching tool
+from functools import lru_cache # Memory Caching tool
 import PyPDF2, io, requests, json, re, os  
 
 app = FastAPI()
@@ -34,15 +34,11 @@ class TopicRequest(BaseModel):
 
 # --- HELPERS ---
 
-# --- ADDED: LRU Cache saves the last 50 prompts in memory ---
-# If a student asks for the exact same syllabus audit or prompt again,
-# this intercepts it and responds in 0.001s without calling Groq!
 @lru_cache(maxsize=50)
 def call_groq(prompt: str):
     """Sends prompt to Groq Cloud for instant Llama 3 inference."""
     url = "https://api.groq.com/openai/v1/chat/completions"
     
-    # Safely fetches the API key from your Render environment variables
     api_key = os.environ.get("GROQ_API_KEY") 
     
     headers = {
@@ -55,7 +51,7 @@ def call_groq(prompt: str):
         "messages": [{"role": "user", "content": prompt}],
         "response_format": {"type": "json_object"},
         "temperature": 0.2,
-        "max_tokens": 1500  # <-- ADDED: Token Clamp to force faster API completion
+        "max_tokens": 1500  
     }
     
     try:
@@ -78,6 +74,11 @@ def call_groq(prompt: str):
 
 # --- ENDPOINTS ---
 
+# --- ADDED: Health check for Render Keep-Alive (cron-job.org) ---
+@app.get("/health")
+def health_check():
+    return {"status": "awake"}
+
 @app.post("/api/extract-text/")
 async def extract_text(file: UploadFile = File(...)):
     """Handles PDF and TXT file parsing."""
@@ -92,8 +93,9 @@ async def extract_text(file: UploadFile = File(...)):
         extracted_text = content.decode("utf-8")
     return {"text": extracted_text}
 
+# --- FIXED: Removed 'async' from this endpoint to prevent server freezing ---
 @app.post("/api/generate-from-topic/")
-async def generate_from_topic(request: TopicRequest):
+def generate_from_topic(request: TopicRequest):
     """Strict Syllabus Auditor & Concept Specialist"""
     prompt = f"""
     You are a RUTHLESS academic syllabus auditor for {request.university}.
@@ -110,11 +112,11 @@ async def generate_from_topic(request: TopicRequest):
       "content": "If true, provide a massive, exhaustive deep-dive description of '{request.topic}'. If false, explain the exact reason for rejection (e.g., 'Organic Chemistry is a core Science topic and is not covered in a standard BA syllabus.' or 'This is a broad subject. Please provide a specific concept.')."
     }}
     """
-    # Because call_groq is now cached, identical audits will resolve instantly!
     return call_groq(prompt)
 
+# --- FIXED: Removed 'async' from this endpoint to prevent server freezing ---
 @app.post("/api/generate-session/")
-async def generate_session(request: StudyRequest):
+def generate_session(request: StudyRequest):
     """Main engine for generating study guides and interactive quizzes."""
     global session_errors
     
@@ -199,8 +201,9 @@ async def generate_session(request: StudyRequest):
             
         return call_groq(prompt)
 
+# --- FIXED: Removed 'async' from this endpoint to prevent server freezing ---
 @app.post("/api/track-error/")
-async def track_error(request: FeedbackRequest):
+def track_error(request: FeedbackRequest):
     """Tracks and removes weak concepts for the Adaptive Review loop."""
     global session_errors
     if not request.is_correct: 
